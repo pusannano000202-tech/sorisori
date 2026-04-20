@@ -1,37 +1,54 @@
 import Link from "next/link";
 import type { SessionSummary } from "@sorisori/contracts";
 
-const sessions: SessionSummary[] = [
-  {
-    id: "session-001",
-    title: "Product webinar capture",
-    date: "2026-04-19",
-    durationLabel: "18m 42s",
-    archiveStatus: "saved",
-    sourceLanguage: "en",
-    targetLanguage: "ko",
-  },
-  {
-    id: "session-002",
-    title: "Gaming stream subtitle test",
-    date: "2026-04-18",
-    durationLabel: "09m 10s",
-    archiveStatus: "draft",
-    sourceLanguage: "ja",
-    targetLanguage: "ko",
-  },
-  {
-    id: "session-003",
-    title: "YouTube lecture latency benchmark",
-    date: "2026-04-17",
-    durationLabel: "26m 02s",
-    archiveStatus: "saved",
-    sourceLanguage: "en",
-    targetLanguage: "ko",
-  },
-];
+interface PipelineSessionEntry {
+  sessionId: string;
+  totalSegments: number;
+  firstSegmentAt: string | null;
+  lastSegmentAt: string | null;
+}
 
-export default function HistoryPage() {
+interface PipelineSessionsResponse {
+  sessions: PipelineSessionEntry[];
+}
+
+function formatDuration(firstAt: string | null, lastAt: string | null): string {
+  if (!firstAt || !lastAt) return "—";
+  const diffMs = new Date(lastAt).getTime() - new Date(firstAt).getTime();
+  if (diffMs <= 0) return "—";
+  const totalSec = Math.floor(diffMs / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+}
+
+function toSessionSummary(entry: PipelineSessionEntry): SessionSummary {
+  return {
+    id: entry.sessionId,
+    title: entry.sessionId,
+    date: entry.firstSegmentAt ? entry.firstSegmentAt.slice(0, 10) : "—",
+    durationLabel: formatDuration(entry.firstSegmentAt, entry.lastSegmentAt),
+    archiveStatus: entry.totalSegments > 0 ? "saved" : "draft",
+    sourceLanguage: "en",
+    targetLanguage: "ko",
+  };
+}
+
+async function fetchSessions(): Promise<SessionSummary[]> {
+  const base = process.env.PIPELINE_API_URL ?? "http://127.0.0.1:8788";
+  try {
+    const res = await fetch(`${base}/sessions`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as PipelineSessionsResponse;
+    return data.sessions.map(toSessionSummary);
+  } catch {
+    return [];
+  }
+}
+
+export default async function HistoryPage() {
+  const sessions = await fetchSessions();
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10">
       <header className="glass-panel rounded-[2rem] px-6 py-6">
@@ -46,23 +63,28 @@ export default function HistoryPage() {
       </header>
 
       <section className="mt-8 space-y-4">
+        {sessions.length === 0 && (
+          <p className="text-center text-[var(--ink-soft)]">저장된 세션이 없습니다.</p>
+        )}
         {sessions.map((session) => (
-          <article key={session.id} className="glass-panel rounded-[1.8rem] p-5 sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="mono-face text-xs uppercase tracking-[0.24em] text-[var(--ink-soft)]">
-                  {session.date}
-                </p>
-                <h2 className="display-face mt-2 text-2xl font-semibold">{session.title}</h2>
+          <Link key={session.id} href={`/session?id=${session.id}`}>
+            <article className="glass-panel cursor-pointer rounded-[1.8rem] p-5 transition-opacity hover:opacity-80 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="mono-face text-xs uppercase tracking-[0.24em] text-[var(--ink-soft)]">
+                    {session.date}
+                  </p>
+                  <h2 className="display-face mt-2 text-2xl font-semibold">{session.title}</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-full bg-[rgba(32,181,200,0.12)] px-3 py-1 text-sm font-medium text-[var(--cyan)]">
+                    {session.archiveStatus}
+                  </span>
+                  <span className="mono-face text-sm text-[var(--ink-soft)]">{session.durationLabel}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full bg-[rgba(32,181,200,0.12)] px-3 py-1 text-sm font-medium text-[var(--cyan)]">
-                  {session.archiveStatus}
-                </span>
-                <span className="mono-face text-sm text-[var(--ink-soft)]">{session.durationLabel}</span>
-              </div>
-            </div>
-          </article>
+            </article>
+          </Link>
         ))}
       </section>
     </main>

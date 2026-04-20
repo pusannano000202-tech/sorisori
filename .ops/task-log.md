@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 12 완료 - PostgreSQL + Prisma 영구 저장 (DATABASE_URL 없으면 in-memory fallback)
+- 현재 단계: Phase 0 / Step 13 완료 - /history 페이지 pipeline API 연동
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -64,6 +64,12 @@
   - 세션 전환 시 transcript lane이 새 세션 기준으로 remount/reconnect 되도록 정리
   - 세그먼트 upsert 정렬을 `startMs` 기준으로 안정화
   - web lint, typecheck, build 모두 통과
+- Step 13 완료:
+  - `apps/web/src/app/history/page.tsx`를 서버 컴포넌트 SSR fetch로 교체
+  - `PIPELINE_API_URL` 환경 변수 (기본값 `http://127.0.0.1:8788`) 지원
+  - pipeline 응답 없으면 빈 목록 표시 (graceful fallback)
+  - 세션 클릭 시 `/session?id=:sessionId`로 이동
+  - web tsc check 통과
 - 다음 우선 작업:
   - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
     1. `npm run dev:realtime` → 게이트웨이 시작
