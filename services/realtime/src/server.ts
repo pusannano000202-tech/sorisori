@@ -22,12 +22,17 @@ import type {
   RealtimeGatewayServerMessage,
   RealtimePingMessage,
   RealtimeProviderStateMessage,
+  RealtimeSegmentUpsertedMessage,
   RealtimeSessionStartMessage,
   RealtimeSessionStateMessage,
   RealtimeSessionStopMessage,
+  RealtimeTranscriptionCompletedMessage,
+  RealtimeTranscriptionDeltaMessage,
   SessionLifecycleStatus,
+  TranscriptSegment,
 } from "@sorisori/contracts";
 import { OpenAiRealtimeTranscriptionBridge } from "./openai-realtime-transcription.js";
+import { translateWithDeepL } from "./deepl-translation.js";
 
 interface ClientConnection {
   connectionId: string;
@@ -52,6 +57,8 @@ interface SessionRecord {
   lastMetrics: RealtimeCaptureMetricsMessage | null;
   providerBridge: OpenAiRealtimeTranscriptionBridge | null;
   providerModel: string | null;
+  sessionStartedAtMs: number;
+  itemFirstSeenAtMs: Map<string, number>;
   updatedAt: string;
 }
 
@@ -70,6 +77,7 @@ interface StartRealtimeGatewayOptions {
   openAiBaseUrl?: string;
   openAiLanguage?: string;
   openAiPrompt?: string;
+  deeplApiKey?: string;
 }
 
 function nowIso() {
@@ -167,6 +175,7 @@ export async function startRealtimeGatewayServer(
   const openAiBaseUrl = options.openAiBaseUrl ?? process.env.OPENAI_REALTIME_BASE_URL;
   const openAiLanguage = options.openAiLanguage ?? process.env.OPENAI_REALTIME_LANGUAGE;
   const openAiPrompt = options.openAiPrompt ?? process.env.OPENAI_REALTIME_TRANSCRIPTION_PROMPT;
+  const deeplApiKey = options.deeplApiKey ?? process.env.DEEPL_API_KEY ?? "";
 
   const clients = new Map<string, ClientConnection>();
   const sessions = new Map<string, SessionRecord>();
@@ -226,6 +235,8 @@ export async function startRealtimeGatewayServer(
       lastMetrics: null,
       providerBridge: null,
       providerModel: openAiModel,
+      sessionStartedAtMs: Date.now(),
+      itemFirstSeenAtMs: new Map<string, number>(),
       updatedAt: nowIso(),
     };
 
@@ -238,6 +249,40 @@ export async function startRealtimeGatewayServer(
     nextSession.updatedAt = nowIso();
     sessions.set(payload.sessionId, nextSession);
     return nextSession;
+  }
+
+  async function assembleAndBroadcastSegment(
+    session: SessionRecord,
+    completed: RealtimeTranscriptionCompletedMessage,
+  ) {
+    const nowMs = Date.now();
+    const startMs = (session.itemFirstSeenAtMs.get(completed.itemId) ?? nowMs) - session.sessionStartedAtMs;
+    const endMs = nowMs - session.sessionStartedAtMs;
+    session.itemFirstSeenAtMs.delete(completed.itemId);
+
+    let translatedText = "";
+    if (deeplApiKey && completed.transcript.trim()) {
+      translatedText = (await translateWithDeepL(completed.transcript, deeplApiKey)) ?? "";
+    }
+
+    const segment: TranscriptSegment = {
+      id: completed.itemId,
+      seq: completed.sequence ?? 0,
+      startMs: Math.max(0, startMs),
+      endMs: Math.max(0, endMs),
+      sourceText: completed.transcript,
+      translatedText,
+      isFinal: true,
+      confidence: 1.0,
+    };
+
+    const segmentPayload: RealtimeSegmentUpsertedMessage = {
+      type: "segment.upserted",
+      sessionId: session.sessionId,
+      segment,
+      occurredAt: nowIso(),
+    };
+    broadcastToSession(session.sessionId, segmentPayload);
   }
 
   async function ensureOpenAiBridge(session: SessionRecord) {
@@ -287,14 +332,23 @@ export async function startRealtimeGatewayServer(
             }
             return;
           }
-          case "transcription.delta":
-          case "transcription.completed":
-          case "transcription.failed":
-            if (event.type === "transcription.completed") {
-              session.status = "transcribing";
-            } else if (event.type === "transcription.failed") {
-              session.status = "error";
+          case "transcription.delta": {
+            const delta = event as RealtimeTranscriptionDeltaMessage;
+            if (!session.itemFirstSeenAtMs.has(delta.itemId)) {
+              session.itemFirstSeenAtMs.set(delta.itemId, Date.now());
             }
+            broadcastToSession(session.sessionId, delta);
+            return;
+          }
+          case "transcription.completed": {
+            const completed = event as RealtimeTranscriptionCompletedMessage;
+            session.status = "transcribing";
+            broadcastToSession(session.sessionId, completed);
+            void assembleAndBroadcastSegment(session, completed);
+            return;
+          }
+          case "transcription.failed":
+            session.status = "error";
             broadcastToSession(session.sessionId, event);
             return;
           default:

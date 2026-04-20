@@ -229,6 +229,36 @@ gateway는 OpenAI upstream에서 받은 `conversation.item.input_audio_transcrip
 2. 과도한 직역을 줄이기 위해 최소 문맥을 유지한다.
 3. 결과를 자막 세그먼트로 저장하고 화면에 푸시한다.
 
+### Transcript segment assembly 및 번역 단계 (Step 9 기준)
+
+Step 9 기준 세그먼트 조립과 번역은 `services/realtime` 내부에서 처리한다.
+
+**조립 규칙:**
+
+- `transcription.delta` 이벤트가 처음 도착하면 item 단위로 시작 시각(ms)을 기록한다.
+- `transcription.completed` 이벤트가 도착하면 하나의 확정 세그먼트를 만든다.
+- `startMs` = 해당 itemId의 첫 delta 수신 시각 - 세션 시작 시각
+- `endMs` = completed 수신 시각 - 세션 시작 시각
+- `seq` = OpenAI `input_audio_buffer.committed` 이벤트에서 추적하는 서버 측 시퀀스 번호
+- `confidence` = 1.0 (OpenAI realtime 전사 API는 신뢰도 값을 반환하지 않음)
+
+**번역 단계:**
+
+- `DEEPL_API_KEY` 환경 변수가 설정된 경우에만 DeepL 번역을 호출한다.
+- `transcription.completed` 수신 후 비동기로 DeepL text API를 호출한다 (기본 타임아웃 5초).
+- 번역 성공 시 `translatedText`에 결과를 채운다. 실패 또는 타임아웃 시 빈 문자열로 세그먼트를 발행한다.
+- DeepL free tier key는 `:fx` 접미사로 식별해 `api-free.deepl.com`을 사용한다.
+
+**브로드캐스트:**
+
+- 세그먼트가 완성되면 `segment.upserted` 메시지를 세션의 모든 연결 클라이언트에 브로드캐스트한다.
+- `transcription.completed`와 `segment.upserted`는 별도 이벤트로 유지한다. 전자는 원문 전사, 후자는 번역 포함 최종 세그먼트다.
+
+**향후 분리 경계:**
+
+- `services/realtime`은 전송 게이트웨이 + 세그먼트 조립까지만 담당한다.
+- 세그먼트 저장, 요약, 후처리는 `services/pipeline`으로 이전할 수 있다.
+
 ### 저장 및 종료
 
 1. 세션 메타데이터와 자막 세그먼트를 저장한다.

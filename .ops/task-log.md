@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 8 완료 - OpenAI realtime transcription uplink 연결
+- 현재 단계: Phase 0 / Step 9 완료 - transcript segment assembly + DeepL 번역 + 웹 세션 연결
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -32,19 +32,35 @@
   - gateway가 OpenAI upstream과 연결되면 transcript 이벤트를 데스크톱으로 다시 브로드캐스트하도록 연결
   - desktop 디버그 화면에 transcript 패널 추가
   - mock OpenAI WebSocket upstream 기반 integration test 추가
+  - Step 9를 Claude Code에 넘기기 위한 handoff 요청서/메모/체크포인트 초안 준비
+- Step 9 완료:
+  - `packages/contracts/src/realtime.ts`에 `RealtimeSegmentUpsertedMessage` 추가, `RealtimeGatewayServerMessage` 유니온 확장
+  - `services/realtime/src/deepl-translation.ts` 신규 작성 (free/paid tier 자동 감지, 5초 타임아웃)
+  - `services/realtime/src/server.ts`에 segment assembly 및 DeepL 번역 단계 추가
+    - `SessionRecord`에 `sessionStartedAtMs`, `itemFirstSeenAtMs` 필드 추가
+    - `transcription.delta` 수신 시 item 시작 시각 기록
+    - `transcription.completed` 수신 시 DeepL 번역 호출 후 `segment.upserted` 브로드캐스트
+    - `DEEPL_API_KEY` env var 연결
+  - `apps/web/src/app/session/TranscriptLane.tsx` 신규 작성 (client component, WS 연결, 실시간 세그먼트 표시)
+  - `apps/web/src/app/session/page.tsx`에서 정적 mock 제거, `TranscriptLane` 연결
+  - `docs/TRD.md`에 segment assembly / 번역 단계 기준 단락 추가
+  - contracts check, realtime check, realtime build, realtime test 모두 통과
+  - web tsc check 통과
 - 다음 우선 작업:
-  - `services/realtime`와 `services/pipeline`이 공통 계약을 쓰도록 연결
-  - OpenAI realtime transcription 결과를 세그먼트 모델로 정제하는 pipeline 단계 추가
-  - 웹 세션 화면에 실제 세션 상태 이벤트 구조 반영
-  - OpenAI realtime transcription uplink 연결 전 `capture-metrics` 30초 검증
-  - DeepL 번역 단계와 transcript 이벤트 연결
+  - `capture-metrics` 30초 live 검증 실행 (OPENAI_API_KEY + DEEPL_API_KEY 환경 설정 후)
+  - 웹 세션 화면에서 `NEXT_PUBLIC_REALTIME_WS_URL`, `NEXT_PUBLIC_DEFAULT_SESSION_ID` env 설정 및 end-to-end 검증
+  - `TranscriptLane`의 세션 ID를 UI에서 입력 가능하도록 확장 (선택)
+  - `services/pipeline` 서비스 골격 실제 구현 (세그먼트 저장, 후처리)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
   - `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
+  - `.ops/handoff-2026-04-20-1738-codex-to-claude-step9.md`
   - `.ops/checkpoints/2026-04-20-1545-step6-handoff-to-claude.md`
   - `.ops/checkpoints/2026-04-20-1606-step6-persistent-worker.md`
   - `.ops/checkpoints/2026-04-20-1633-step7-realtime-uplink.md`
   - `.ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
+  - `.ops/checkpoints/2026-04-20-1738-step9-handoff-to-claude.md`
 - 작업 규칙:
   - 시작 전 현재 작업을 여기에 갱신
   - 종료 전 체크포인트 또는 커밋 남기기

@@ -1,0 +1,55 @@
+# Request
+
+- Topic: step 9 pipeline + translation handoff after OpenAI realtime transcription bridge
+- From: Codex
+- To: Claude Code
+- Goal: Codex completed Step 8 and is handing over the next phase. Please take ownership of Step 9: live `capture-metrics` validation guidance, transcript segment assembly, MVP translation stage planning, and the safest file-by-file continuation path.
+- Read first:
+  - `.ops/ai-bridge/CLAUDE_START.md`
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `.ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
+  - `.ops/handoff-2026-04-20-1738-codex-to-claude-step9.md`
+  - `docs/TRD.md`
+- Repo state summary:
+  - Desktop already captures Windows system audio via `WASAPI loopback`, converts to `PCM16 / mono / 24kHz`, and emits `audio-chunk` plus `capture-metrics`.
+  - `services/realtime` already accepts desktop WebSocket uplink and forwards audio to the OpenAI realtime transcription upstream.
+  - The gateway already rebroadcasts `provider.state`, `transcription.delta`, `transcription.completed`, and `transcription.failed`.
+  - Safe commits already exist; do not revert current desktop capture or OpenAI bridge behavior unless you find a concrete bug.
+- Files in primary scope:
+  - `services/realtime/src/server.ts`
+  - `services/realtime/src/openai-realtime-transcription.ts`
+  - `packages/contracts/src/realtime.ts`
+  - `packages/contracts/src/events.ts`
+  - `packages/contracts/src/session.ts`
+  - `docs/TRD.md`
+  - `services/realtime/README.md`
+- Files in secondary scope:
+  - `services/pipeline/**`
+  - `apps/web/src/app/session/page.tsx`
+- Files to avoid unless required by a blocking issue:
+  - `apps/desktop/src-tauri/**`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/index.html`
+- Questions to answer:
+  - How should OpenAI `transcription.delta` and `transcription.completed` be assembled into stable transcript segments for the rest of the app?
+  - Should transcript assembly live inside `services/realtime`, inside a new `services/pipeline`, or split between them?
+  - What is the minimum DeepL translation flow for MVP once a transcript segment is finalized?
+  - What new message contracts should be added for translated segments, pipeline status, and web session consumption?
+  - What exact 30-second live validation checklist should Codex run on `capture-metrics` before trusting the translation stage?
+  - What is the safest edit order so another AI can continue without breaking the current desktop capture and OpenAI bridge path?
+- If you choose to edit code:
+  - keep the existing OpenAI bridge entrypoints and event names stable unless you are also updating contracts and docs in the same pass
+  - update `.ops/task-log.md`
+  - leave a new checkpoint in `.ops/checkpoints/`
+  - prefer one safe commit at the end
+- Desired response format:
+  - Conclusion
+  - Exact Step 9 file plan
+  - Segment assembly rules
+  - Translation stage proposal
+  - 30-second validation checklist
+  - Risks / guardrails
+  - Optional TRD patch snippet
+- Deadline or urgency:
+  - Immediate handoff. Assume the next AI may not have prior chat history and must continue from repository files alone.

@@ -1,5 +1,5 @@
 import type { AudioSourceType, AudioStreamFormat } from "./audio";
-import type { SessionLifecycleStatus } from "./session";
+import type { SessionLifecycleStatus, TranscriptSegment } from "./session";
 
 export type RealtimeClientRole = "desktop-capture" | "web-viewer" | "pipeline";
 
@@ -167,6 +167,13 @@ export interface GatewayErrorMessage {
   occurredAt: string;
 }
 
+export interface RealtimeSegmentUpsertedMessage {
+  type: "segment.upserted";
+  sessionId: string;
+  segment: TranscriptSegment;
+  occurredAt: string;
+}
+
 export type RealtimeGatewayServerMessage =
   | GatewayWelcomeMessage
   | RealtimeSessionStateMessage
@@ -176,5 +183,6 @@ export type RealtimeGatewayServerMessage =
   | RealtimeTranscriptionDeltaMessage
   | RealtimeTranscriptionCompletedMessage
   | RealtimeTranscriptionFailedMessage
+  | RealtimeSegmentUpsertedMessage
   | GatewayPongMessage
   | GatewayErrorMessage;

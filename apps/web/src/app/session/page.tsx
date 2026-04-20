@@ -3,44 +3,14 @@ import {
   DEFAULT_SESSION_SOURCES,
   MVP_AUDIO_CONVERSION_PLAN,
   MVP_SESSION_METRICS,
-  type TranscriptSegment,
 } from "@sorisori/contracts";
+import TranscriptLane from "./TranscriptLane";
 
-const transcriptRows: Array<TranscriptSegment & { time: string }> = [
-  {
-    id: "seg-001",
-    seq: 1,
-    startMs: 14000,
-    endMs: 15800,
-    time: "00:14",
-    sourceText: "The speaker is comparing streaming latency across providers.",
-    translatedText: "화자가 공급자별 스트리밍 지연 시간을 비교하고 있습니다.",
-    isFinal: true,
-    confidence: 0.94,
-  },
-  {
-    id: "seg-002",
-    seq: 2,
-    startMs: 16000,
-    endMs: 17700,
-    time: "00:16",
-    sourceText: "We will keep the Korean subtitle layer readable before chasing extra features.",
-    translatedText: "추가 기능보다 먼저 한국어 자막 레이어의 가독성을 안정화하겠습니다.",
-    isFinal: true,
-    confidence: 0.92,
-  },
-  {
-    id: "seg-003",
-    seq: 3,
-    startMs: 18000,
-    endMs: 19600,
-    time: "00:18",
-    sourceText: "Windows loopback is already locked as the MVP capture strategy.",
-    translatedText: "Windows loopback은 이미 MVP 캡처 전략으로 확정됐습니다.",
-    isFinal: true,
-    confidence: 0.96,
-  },
-];
+const GATEWAY_WS_URL =
+  process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? "ws://localhost:8787/ws";
+
+const DEFAULT_SESSION_ID =
+  process.env.NEXT_PUBLIC_DEFAULT_SESSION_ID ?? "mvp-session-001";
 
 export default function SessionPage() {
   return (
@@ -116,39 +86,7 @@ export default function SessionPage() {
         </aside>
 
         <section className="space-y-6">
-          <div className="glass-panel rounded-[2rem] p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="mono-face text-xs uppercase tracking-[0.28em] text-[var(--ink-soft)]">
-                  live subtitles
-                </p>
-                <h2 className="display-face mt-2 text-2xl font-semibold">dual transcript lane</h2>
-              </div>
-              <div className="flex items-center gap-2 rounded-full bg-[rgba(255,107,74,0.08)] px-3 py-2 text-sm text-[var(--coral)]">
-                <span className="pulse-dot h-2 w-2 rounded-full bg-[var(--coral)]" />
-                not connected yet
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              {transcriptRows.map((row) => (
-                <article key={row.id} className="rounded-[1.6rem] bg-[rgba(255,255,255,0.62)] p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="mono-face text-xs uppercase tracking-[0.24em] text-[var(--ink-soft)]">
-                      {row.time}
-                    </span>
-                    <span className="rounded-full bg-[rgba(32,181,200,0.12)] px-3 py-1 text-xs font-medium text-[var(--cyan)]">
-                      {Math.round(row.confidence * 100)}% confident
-                    </span>
-                  </div>
-                  <p className="text-sm leading-6 text-[var(--ink-soft)]">{row.sourceText}</p>
-                  <p className="mt-3 text-base leading-7 font-semibold text-[var(--ink)]">
-                    {row.translatedText}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
+          <TranscriptLane gatewayUrl={GATEWAY_WS_URL} sessionId={DEFAULT_SESSION_ID} />
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="glass-panel rounded-[1.8rem] p-5">

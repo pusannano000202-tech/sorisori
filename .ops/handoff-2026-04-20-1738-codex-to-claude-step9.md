@@ -1,0 +1,54 @@
+# Handoff
+
+- 작업 주제: Phase 0 / Step 9 pipeline + translation handoff after OpenAI realtime transcription bridge
+- 현재 브랜치: `main`
+- 읽고 시작할 파일:
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `.ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
+  - `docs/TRD.md`
+  - `packages/contracts/src/realtime.ts`
+  - `services/realtime/src/server.ts`
+  - `services/realtime/src/openai-realtime-transcription.ts`
+  - `services/realtime/src/server.test.ts`
+  - `apps/web/src/app/session/page.tsx`
+- 관련 `ai-bridge` 요청/응답 파일:
+  - `.ops/ai-bridge/requests/2026-04-20-1015-from-codex-to-claude-loopback-worker.md`
+  - `.ops/ai-bridge/responses/2026-04-20-1100-from-claude-to-codex-loopback-worker.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
+- 이번 흐름에서 이미 완료한 것:
+  - desktop `WASAPI loopback` capture worker가 `PCM16 / mono / 24kHz` 청크를 생성한다.
+  - desktop UI가 `audio-chunk`와 `capture-metrics`를 WebSocket gateway로 업링크한다.
+  - `services/realtime`가 desktop 세션을 열고, `audio.chunk.ack`, `capture.metrics.observed`, `session.state`를 되돌려준다.
+  - gateway가 OpenAI realtime transcription upstream과 연결되어 `transcription.delta` 및 `transcription.completed`를 브로드캐스트한다.
+  - mock upstream 기반 테스트가 통과한다.
+- 아직 안 끝난 것:
+  - `capture-metrics` 30초 live 검증 절차를 실제 운영 기준으로 확정
+  - OpenAI transcript 이벤트를 앱 전체가 쓰기 쉬운 세그먼트 모델로 정제
+  - DeepL 번역 단계 연결
+  - 웹 세션 화면에 transcript/translation 스트림 연결
+- 현재 판단:
+  - desktop capture와 OpenAI bridge는 Step 8 기준으로 일단 안정 상태다.
+  - 다음 병목은 오디오 수집이 아니라 "전사 결과를 앱용 세그먼트로 만드는 규칙"과 "번역 stage를 어디에 둘지"다.
+  - Step 9는 가능하면 `services/realtime`와 `services/pipeline` 경계를 먼저 확정한 뒤 코드로 들어가는 편이 안전하다.
+- 바로 다음 할 일:
+  - transcript segment assembly 위치와 규칙 확정
+  - translated segment 계약 초안 확정
+  - `capture-metrics` live 검증 체크리스트 작성
+  - 필요 시 `docs/TRD.md`에 pipeline/translation 흐름 한 단락 추가
+- 실행/검증이 이미 끝난 명령:
+  - `npm run check -w @sorisori/contracts`
+  - `npm run check -w @sorisori/realtime`
+  - `npm run build -w @sorisori/realtime`
+  - `npm run test -w @sorisori/realtime`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- 주의사항:
+  - `WASAPI loopback` + `wasapi` crate + `rubato + dasp` MVP 경로를 유지한다.
+  - OpenAI realtime transcription bridge의 현재 이벤트 이름은 함부로 바꾸지 않는다.
+  - desktop capture 관련 Rust 파일은 blocking bug가 아니면 이번 handoff 범위 밖으로 둔다.
+  - 설계 변경이 있으면 `docs/TRD.md`를 먼저 맞춘다.
+  - 이어서 작업한다면 작은 단위 검증과 체크포인트를 남긴다.
+- 다음 AI에 전달할 한 줄 프롬프트:
+  - `.ops/ai-bridge/CLAUDE_START.md`, `.ops/ai-bridge/shared-context.md`, `.ops/handoff-2026-04-20-1738-codex-to-claude-step9.md`, `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`를 읽고, 응답을 `.ops/ai-bridge/responses/`에 새 md 파일로 남겨줘.

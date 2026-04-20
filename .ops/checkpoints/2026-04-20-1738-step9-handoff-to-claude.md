@@ -1,0 +1,32 @@
+# Checkpoint
+
+- Date: 2026-04-20 17:38
+- Branch: `main`
+- Topic: Step 9 handoff to Claude after OpenAI realtime transcription bridge
+- Files changed:
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
+  - `.ops/handoff-2026-04-20-1738-codex-to-claude-step9.md`
+  - `.ops/checkpoints/2026-04-20-1738-step9-handoff-to-claude.md`
+- Decisions made:
+  - Step 8 완료 상태를 기준으로 다음 AI handoff 범위를 `pipeline + translation + live metrics validation`으로 고정했다.
+  - desktop capture 및 OpenAI bridge는 유지하고, Step 9는 세그먼트 모델과 번역 단계 정리에 집중한다.
+  - Claude가 prior chat history 없이도 이어갈 수 있도록 request/handoff 파일에 현재 repo 상태를 명시했다.
+- Commands run:
+  - `Get-Content .ops/task-log.md`
+  - `Get-Content .ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
+  - `Get-Content .ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+  - `Get-Content .ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
+  - `Get-Content .ops/ai-bridge/shared-context.md`
+  - `git status --short`
+- Validation result:
+  - 문서형 handoff 자료 생성 완료
+  - shared context를 Step 8 기준으로 최신화 완료
+  - 코드/동작 변경은 없음
+- Remaining work:
+  - Claude가 `Step 9`의 세그먼트/번역 경계를 리뷰하거나 구현
+  - `capture-metrics` 30초 live 검증
+  - pipeline 계약 확정 후 web session 연결
+- Resume prompt:
+  - `Read .ops/ai-bridge/CLAUDE_START.md, .ops/ai-bridge/shared-context.md, .ops/handoff-2026-04-20-1738-codex-to-claude-step9.md, and .ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md, then continue Step 9 from the repository alone.`

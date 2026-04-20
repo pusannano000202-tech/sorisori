@@ -14,6 +14,10 @@
 - Rust 1.86.0 로컬 툴체인 고정
 - Windows WASAPI loopback 런타임 프로브 구현
 - loopback preview -> PCM16/mono/24kHz 변환 진단 구현
+- persistent `WASAPI loopback` worker 및 desktop start/stop 세션 구현
+- desktop -> realtime gateway 업링크 및 metrics 브리지 구현
+- OpenAI realtime transcription bridge 구현
+- desktop 디버그 화면에 gateway/transcript 패널 연결
 
 ## 현재 기술 기준
 
@@ -25,9 +29,10 @@
 
 ## 현재 다음 우선순위
 
-1. 짧은 loopback 프로브를 장시간 capture worker로 승격
-2. 변환된 청크를 realtime 업링크 계약에 연결
-3. 웹 세션 상태 이벤트와 desktop 세션 제어 연결
+1. `capture-metrics`를 기준으로 30초 live 검증 절차 확정
+2. OpenAI transcription delta/completed 이벤트를 안정적인 세그먼트 모델로 정제
+3. DeepL 번역 단계와 transcript 이벤트를 연결
+4. 웹 세션 화면에 transcript/translation 스트림을 연결
 
 ## 지금 주의할 점
 
@@ -35,3 +40,4 @@
 - Rust 툴체인 핀 `1.86.0`은 유지한다.
 - 같은 파일군을 Codex와 Claude가 동시에 최종 수정하지 않는다.
 - 확정 설계 변경은 먼저 문서에 남긴다.
+- desktop `audio/worker.rs`와 OpenAI bridge의 현재 동작은 유지한 채, Step 9는 pipeline/translation 중심으로 확장한다.

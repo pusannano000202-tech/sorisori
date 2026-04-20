@@ -1,0 +1,42 @@
+# Checkpoint
+
+- Date: 2026-04-20 18:15
+- Branch: `main`
+- Topic: Step 9 complete - transcript segment assembly + DeepL translation + web session stream
+- Files changed:
+  - `packages/contracts/src/realtime.ts`
+  - `services/realtime/src/deepl-translation.ts` (new)
+  - `services/realtime/src/server.ts`
+  - `apps/web/src/app/session/TranscriptLane.tsx` (new)
+  - `apps/web/src/app/session/page.tsx`
+  - `docs/TRD.md`
+  - `.ops/task-log.md`
+- Decisions made:
+  - segment assembly는 `services/realtime` 내부에서 처리한다 (MVP 단계, 향후 `services/pipeline`으로 이전 가능).
+  - `transcription.delta` 첫 수신 시각과 세션 시작 시각의 차이로 `startMs` / `endMs`를 계산한다.
+  - `confidence: 1.0` 고정 (OpenAI realtime 전사 API가 신뢰도를 반환하지 않음).
+  - DeepL API 호출은 5초 타임아웃, 실패 시 빈 `translatedText`로 세그먼트 발행 (non-blocking).
+  - 웹 세션 페이지는 `TranscriptLane` 클라이언트 컴포넌트를 통해 게이트웨이 WS에 직접 연결한다.
+  - `NEXT_PUBLIC_REALTIME_WS_URL` (기본값 `ws://localhost:8787/ws`), `NEXT_PUBLIC_DEFAULT_SESSION_ID` (기본값 `mvp-session-001`) env var로 연결 대상 설정.
+  - 기존 `transcription.delta` / `transcription.completed` 이벤트 이름은 유지한다. `segment.upserted`는 별도 추가.
+- Commands run:
+  - `npm run check -w @sorisori/contracts` → pass
+  - `npm run check -w @sorisori/realtime` → pass
+  - `npm run build -w @sorisori/realtime` → pass
+  - `npm run test -w @sorisori/realtime` → pass (1/1)
+  - `npx tsc -p apps/web/tsconfig.json --noEmit` → pass
+- Validation result:
+  - contracts check passed
+  - realtime check passed
+  - realtime build passed
+  - realtime integration test passed (mock upstream)
+  - web tsc check passed
+- Remaining work:
+  - `capture-metrics` 30초 live 검증 (실제 OPENAI_API_KEY + DEEPL_API_KEY 환경 필요)
+  - 웹 세션 end-to-end 검증 (desktop → gateway → DeepL → web 자막 표시)
+  - `TranscriptLane` 세션 ID 동적 입력 UI (선택)
+  - `services/pipeline` 실제 구현 (세그먼트 저장/요약/후처리)
+- Next immediate step:
+  - 환경 변수 설정 후 live 검증: `OPENAI_API_KEY`, `DEEPL_API_KEY` 설정 → `services/realtime` 실행 → desktop 세션 시작 → 30초 캡처 → 웹 세션 화면 자막 확인
+- Resume prompt:
+  - `Step 9 complete. Set OPENAI_API_KEY and DEEPL_API_KEY, start services/realtime (npm run dev -w @sorisori/realtime), start the desktop app, run a 30-second capture session, verify capture-metrics continuity, verify segment.upserted events appear in web session page at NEXT_PUBLIC_DEFAULT_SESSION_ID=mvp-session-001.`
