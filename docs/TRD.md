@@ -203,6 +203,20 @@ Step 7 기준 Desktop App은 Tauri 이벤트 브리지에서 `audio-chunk`를 `P
 
 이 단계의 목적은 아직 OpenAI 공급자 연결이 아니라, `desktop -> gateway` 전송 경로와 세션 상태 메시지의 안정화를 먼저 확보하는 것이다.
 
+### OpenAI realtime transcription 연결
+
+Step 8 기준 `services/realtime`는 세션 시작 시 OpenAI Realtime transcription upstream에 별도 WebSocket 연결을 연다. 입력 오디오는 `input_audio_buffer.append` 이벤트로 전달하고, 서버 VAD가 turn commit을 자동 처리하도록 둔다.
+
+초기 연결 파라미터는 다음 기준을 따른다.
+
+1. WebSocket URL: `wss://api.openai.com/v1/realtime`
+2. 인증: 서버 측 `OPENAI_API_KEY`
+3. 기본 모델: `gpt-4o-mini-transcribe`
+4. 입력 포맷: `PCM16 / 24kHz / mono`
+5. turn detection: `server_vad`
+
+gateway는 OpenAI upstream에서 받은 `conversation.item.input_audio_transcription.delta`와 `conversation.item.input_audio_transcription.completed` 이벤트를 내부 세션 ID와 함께 다시 브로드캐스트한다. 이 단계에서는 아직 번역을 붙이지 않고, transcript 품질과 ordering을 먼저 검증한다.
+
 ### 음성 인식
 
 1. 언어를 자동 감지한다.

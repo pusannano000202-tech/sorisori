@@ -105,6 +105,55 @@ export interface RealtimeCaptureMetricsObservedMessage {
   occurredAt: string;
 }
 
+export type RealtimeProviderStateStatus =
+  | "connecting"
+  | "ready"
+  | "error"
+  | "closed";
+
+export interface RealtimeProviderStateMessage {
+  type: "provider.state";
+  sessionId: string;
+  provider: "openai-realtime-transcription";
+  status: RealtimeProviderStateStatus;
+  model: string;
+  message: string;
+  occurredAt: string;
+}
+
+export interface RealtimeTranscriptionDeltaMessage {
+  type: "transcription.delta";
+  sessionId: string;
+  itemId: string;
+  contentIndex: number;
+  delta: string;
+  sequence: number | null;
+  previousItemId: string | null;
+  occurredAt: string;
+}
+
+export interface RealtimeTranscriptionCompletedMessage {
+  type: "transcription.completed";
+  sessionId: string;
+  itemId: string;
+  contentIndex: number;
+  transcript: string;
+  sequence: number | null;
+  previousItemId: string | null;
+  occurredAt: string;
+}
+
+export interface RealtimeTranscriptionFailedMessage {
+  type: "transcription.failed";
+  sessionId: string;
+  itemId: string;
+  contentIndex: number;
+  errorMessage: string;
+  sequence: number | null;
+  previousItemId: string | null;
+  occurredAt: string;
+}
+
 export interface GatewayPongMessage {
   type: "gateway.pong";
   occurredAt: string;
@@ -123,5 +172,9 @@ export type RealtimeGatewayServerMessage =
   | RealtimeSessionStateMessage
   | RealtimeAudioChunkAckMessage
   | RealtimeCaptureMetricsObservedMessage
+  | RealtimeProviderStateMessage
+  | RealtimeTranscriptionDeltaMessage
+  | RealtimeTranscriptionCompletedMessage
+  | RealtimeTranscriptionFailedMessage
   | GatewayPongMessage
   | GatewayErrorMessage;

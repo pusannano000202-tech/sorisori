@@ -22,7 +22,32 @@
   - `session.state`
   - `audio.chunk.ack`
   - `capture.metrics.observed`
+  - `provider.state`
+  - `transcription.delta`
+  - `transcription.completed`
+  - `transcription.failed`
   - `gateway.error`
+
+OpenAI transcription:
+
+- 환경 변수:
+  - `OPENAI_API_KEY`
+  - `OPENAI_REALTIME_TRANSCRIBE_MODEL` 기본값: `gpt-4o-mini-transcribe`
+  - `OPENAI_REALTIME_BASE_URL` 기본값: `wss://api.openai.com/v1/realtime`
+  - `OPENAI_REALTIME_LANGUAGE` 선택
+  - `OPENAI_REALTIME_TRANSCRIPTION_PROMPT` 선택
+- 동작:
+  - 세션 시작 시 OpenAI Realtime transcription upstream WebSocket 연결
+  - 오디오 청크는 `input_audio_buffer.append`
+  - transcript 이벤트는 gateway 이벤트로 재방출
+- 테스트:
+  - 실 API 없이 mock upstream WebSocket으로 통합 테스트 가능
+
+참고 공식 문서:
+
+- Realtime transcription guide: `https://developers.openai.com/api/docs/guides/realtime-transcription`
+- Realtime WebSocket guide: `https://developers.openai.com/api/docs/guides/realtime-websocket`
+- Realtime API reference: `https://developers.openai.com/api/reference/resources/realtime`
 
 개발 명령:
 

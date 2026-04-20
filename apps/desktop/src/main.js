@@ -2,6 +2,7 @@ const snapshotOutput = document.getElementById("snapshot-output");
 const sessionOutput = document.getElementById("session-output");
 const metricsOutput = document.getElementById("metrics-output");
 const gatewayOutput = document.getElementById("gateway-output");
+const transcriptOutput = document.getElementById("transcript-output");
 const refreshButton = document.getElementById("refresh-button");
 const startButton = document.getElementById("start-button");
 const stopButton = document.getElementById("stop-button");
@@ -25,6 +26,7 @@ let pendingGatewayMessages = [];
 let gatewayHelloSent = false;
 let gatewaySessionStarted = false;
 let gatewayDroppedDataMessages = 0;
+let transcriptLog = [];
 
 function setSessionButtons(running) {
   isSessionRunning = running;
@@ -53,6 +55,11 @@ function pushGatewayLog(entry) {
     null,
     2,
   );
+}
+
+function pushTranscriptLog(entry) {
+  transcriptLog = [entry, ...transcriptLog].slice(0, 12);
+  transcriptOutput.textContent = JSON.stringify(transcriptLog, null, 2);
 }
 
 function renderMetrics() {
@@ -187,6 +194,13 @@ function ensureGatewayConnection() {
     try {
       const payload = JSON.parse(event.data);
       pushGatewayLog(payload);
+      if (
+        payload?.type === "transcription.delta" ||
+        payload?.type === "transcription.completed" ||
+        payload?.type === "transcription.failed"
+      ) {
+        pushTranscriptLog(payload);
+      }
     } catch (error) {
       pushGatewayLog({
         type: "gateway.parse-error",
@@ -223,6 +237,8 @@ function closeGatewayConnection(reason) {
   gatewaySessionStarted = false;
   gatewayHelloSent = false;
   gatewayDroppedDataMessages = 0;
+  transcriptLog = [];
+  transcriptOutput.textContent = "waiting for transcript events...";
 
   if (gatewaySocket && gatewaySocket.readyState === WebSocket.OPEN) {
     gatewaySocket.close();
@@ -375,4 +391,5 @@ stopButton?.addEventListener("click", () => {
 setSessionButtons(false);
 renderMetrics();
 pushGatewayLog({ type: "gateway.idle", reason: "app-boot" });
+pushTranscriptLog({ type: "transcript.idle", reason: "app-boot" });
 void loadSnapshot();

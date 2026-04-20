@@ -21,11 +21,13 @@ import type {
   RealtimeGatewayClientMessage,
   RealtimeGatewayServerMessage,
   RealtimePingMessage,
+  RealtimeProviderStateMessage,
   RealtimeSessionStartMessage,
   RealtimeSessionStateMessage,
   RealtimeSessionStopMessage,
   SessionLifecycleStatus,
 } from "@sorisori/contracts";
+import { OpenAiRealtimeTranscriptionBridge } from "./openai-realtime-transcription.js";
 
 interface ClientConnection {
   connectionId: string;
@@ -48,6 +50,8 @@ interface SessionRecord {
   totalAudioBytes: number;
   latestChunkIndex: number | null;
   lastMetrics: RealtimeCaptureMetricsMessage | null;
+  providerBridge: OpenAiRealtimeTranscriptionBridge | null;
+  providerModel: string | null;
   updatedAt: string;
 }
 
@@ -61,6 +65,11 @@ export interface RealtimeGatewayServerHandle {
 interface StartRealtimeGatewayOptions {
   host?: string;
   port?: number;
+  openAiApiKey?: string;
+  openAiModel?: string;
+  openAiBaseUrl?: string;
+  openAiLanguage?: string;
+  openAiPrompt?: string;
 }
 
 function nowIso() {
@@ -152,6 +161,12 @@ export async function startRealtimeGatewayServer(
 ): Promise<RealtimeGatewayServerHandle> {
   const host = options.host ?? process.env.REALTIME_HOST ?? "127.0.0.1";
   const requestedPort = options.port ?? Number(process.env.REALTIME_PORT ?? "8787");
+  const openAiApiKey = options.openAiApiKey ?? process.env.OPENAI_API_KEY ?? "";
+  const openAiModel =
+    options.openAiModel ?? process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe";
+  const openAiBaseUrl = options.openAiBaseUrl ?? process.env.OPENAI_REALTIME_BASE_URL;
+  const openAiLanguage = options.openAiLanguage ?? process.env.OPENAI_REALTIME_LANGUAGE;
+  const openAiPrompt = options.openAiPrompt ?? process.env.OPENAI_REALTIME_TRANSCRIPTION_PROMPT;
 
   const clients = new Map<string, ClientConnection>();
   const sessions = new Map<string, SessionRecord>();
@@ -209,6 +224,8 @@ export async function startRealtimeGatewayServer(
       totalAudioBytes: 0,
       latestChunkIndex: null,
       lastMetrics: null,
+      providerBridge: null,
+      providerModel: openAiModel,
       updatedAt: nowIso(),
     };
 
@@ -221,6 +238,93 @@ export async function startRealtimeGatewayServer(
     nextSession.updatedAt = nowIso();
     sessions.set(payload.sessionId, nextSession);
     return nextSession;
+  }
+
+  async function ensureOpenAiBridge(session: SessionRecord) {
+    if (session.providerBridge) {
+      return;
+    }
+
+    if (!openAiApiKey) {
+      session.status = "error";
+      broadcastToSession(
+        session.sessionId,
+        buildError(
+          "OPENAI_API_KEY is not configured, so realtime transcription uplink is disabled.",
+          false,
+          session.sessionId,
+        ),
+      );
+      return;
+    }
+
+    const bridge = new OpenAiRealtimeTranscriptionBridge({
+      sessionId: session.sessionId,
+      apiKey: openAiApiKey,
+      model: openAiModel,
+      ...(openAiBaseUrl ? { baseUrl: openAiBaseUrl } : {}),
+      ...(openAiLanguage ? { language: openAiLanguage } : {}),
+      ...(openAiPrompt ? { prompt: openAiPrompt } : {}),
+      onEvent: (event) => {
+        session.updatedAt = nowIso();
+        switch (event.type) {
+          case "provider.state": {
+            const providerState = event as RealtimeProviderStateMessage;
+            if (providerState.status === "ready") {
+              session.status = "transcribing";
+            } else if (providerState.status === "error") {
+              session.status = "error";
+            } else if (providerState.status === "closed" && session.status !== "completed") {
+              session.status = "paused";
+            }
+
+            broadcastToSession(session.sessionId, providerState);
+            if (providerState.status === "error") {
+              broadcastToSession(
+                session.sessionId,
+                buildError(providerState.message, true, session.sessionId),
+              );
+            }
+            return;
+          }
+          case "transcription.delta":
+          case "transcription.completed":
+          case "transcription.failed":
+            if (event.type === "transcription.completed") {
+              session.status = "transcribing";
+            } else if (event.type === "transcription.failed") {
+              session.status = "error";
+            }
+            broadcastToSession(session.sessionId, event);
+            return;
+          default:
+            return;
+        }
+      },
+    });
+
+    session.providerBridge = bridge;
+    try {
+      await bridge.connect();
+    } catch (error) {
+      session.providerBridge = null;
+      session.status = "error";
+      const message =
+        error instanceof Error ? error.message : "Failed to connect to OpenAI Realtime.";
+      broadcastToSession(
+        session.sessionId,
+        buildError(`OpenAI Realtime connect failed: ${message}`, true, session.sessionId),
+      );
+    }
+  }
+
+  function teardownOpenAiBridge(session: SessionRecord) {
+    if (!session.providerBridge) {
+      return;
+    }
+
+    session.providerBridge.close();
+    session.providerBridge = null;
   }
 
   function handleClientDisconnect(connectionId: string) {
@@ -242,6 +346,7 @@ export async function startRealtimeGatewayServer(
     session.connectedClientIds.delete(connectionId);
     if (session.connectedClientIds.size === 0 && session.status !== "completed") {
       session.status = "paused";
+      teardownOpenAiBridge(session);
     }
     session.updatedAt = nowIso();
     broadcastToSession(session.sessionId, buildSessionState(session));
@@ -283,6 +388,7 @@ export async function startRealtimeGatewayServer(
         session.connectedClientIds.add(connectionId);
         session.updatedAt = nowIso();
         broadcastToSession(session.sessionId, buildSessionState(session));
+        void ensureOpenAiBridge(session);
         return;
       }
       case "audio.chunk.append": {
@@ -310,6 +416,7 @@ export async function startRealtimeGatewayServer(
         session.totalAudioBytes += pcm16Bytes.length;
         session.latestChunkIndex = chunkPayload.chunkIndex;
         session.updatedAt = nowIso();
+        session.providerBridge?.appendAudioChunk(chunkPayload.pcm16Base64);
 
         const ackPayload: RealtimeAudioChunkAckMessage = {
           type: "audio.chunk.ack",
@@ -356,6 +463,7 @@ export async function startRealtimeGatewayServer(
 
         session.status = "completed";
         session.updatedAt = nowIso();
+        teardownOpenAiBridge(session);
         broadcastToSession(session.sessionId, buildSessionState(session));
         return;
       }

@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 7 완료 - desktop audio-chunk -> realtime gateway uplink 연결
+- 현재 단계: Phase 0 / Step 8 완료 - OpenAI realtime transcription uplink 연결
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -27,9 +27,14 @@
   - desktop `audio-chunk`를 `PCM16 base64` 형태로 services/realtime에 업링크하도록 UI 브리지 추가
   - gateway 미연결 시 데이터 메시지 무한 큐잉을 막는 드롭 가드레일 추가
   - 첫 안전 커밋 `37c9fe4` 생성
+  - `services/realtime`에 OpenAI realtime transcription bridge 추가
+  - `provider.state`, `transcription.delta`, `transcription.completed`, `transcription.failed` 이벤트 계약 추가
+  - gateway가 OpenAI upstream과 연결되면 transcript 이벤트를 데스크톱으로 다시 브로드캐스트하도록 연결
+  - desktop 디버그 화면에 transcript 패널 추가
+  - mock OpenAI WebSocket upstream 기반 integration test 추가
 - 다음 우선 작업:
   - `services/realtime`와 `services/pipeline`이 공통 계약을 쓰도록 연결
-  - OpenAI realtime transcription uplink adapter 추가
+  - OpenAI realtime transcription 결과를 세그먼트 모델로 정제하는 pipeline 단계 추가
   - 웹 세션 화면에 실제 세션 상태 이벤트 구조 반영
   - OpenAI realtime transcription uplink 연결 전 `capture-metrics` 30초 검증
   - DeepL 번역 단계와 transcript 이벤트 연결
@@ -39,6 +44,7 @@
   - `.ops/checkpoints/2026-04-20-1545-step6-handoff-to-claude.md`
   - `.ops/checkpoints/2026-04-20-1606-step6-persistent-worker.md`
   - `.ops/checkpoints/2026-04-20-1633-step7-realtime-uplink.md`
+  - `.ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
 - 작업 규칙:
   - 시작 전 현재 작업을 여기에 갱신
   - 종료 전 체크포인트 또는 커밋 남기기

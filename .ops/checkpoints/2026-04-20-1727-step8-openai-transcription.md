@@ -1,0 +1,45 @@
+# Checkpoint
+
+- Date: 2026-04-20 17:27
+- Branch: `main`
+- Topic: Step 8 complete - OpenAI realtime transcription bridge
+- Files changed:
+  - `packages/contracts/src/realtime.ts`
+  - `services/realtime/src/openai-realtime-transcription.ts`
+  - `services/realtime/src/server.ts`
+  - `services/realtime/src/server.test.ts`
+  - `services/realtime/README.md`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/styles.css`
+  - `docs/TRD.md`
+  - `.ops/task-log.md`
+- Decisions made:
+  - OpenAI transcription uplink은 gateway 서버 측에서 관리한다.
+  - OpenAI upstream 입력은 `input_audio_buffer.append` + `server_vad` 조합으로 시작한다.
+  - transcript 이벤트는 `provider.state`, `transcription.delta`, `transcription.completed`, `transcription.failed`로 다시 브로드캐스트한다.
+  - `transcription_session.update`를 우선 시도하고, 필요 시 `session.update`로 fallback 할 수 있게 bridge를 구성한다.
+- Commands run:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/contracts`
+  - `npm run check -w @sorisori/realtime`
+  - `npm run build -w @sorisori/realtime`
+  - `npm run test -w @sorisori/realtime`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `node --check apps/desktop/src/main.js`
+  - `node --input-type=module -e "import('./services/realtime/dist/server.js').then(() => console.log('realtime-dist-import-ok'))"`
+- Validation result:
+  - contracts check passed
+  - realtime check passed
+  - realtime build passed
+  - realtime mock-upstream integration test passed
+  - desktop check passed
+  - cargo test passed
+- Remaining work:
+  - 실제 `capture-metrics` 30초 검증
+  - transcript 결과를 pipeline 세그먼트 모델로 정제
+  - DeepL 번역 연결
+  - 웹 세션 화면에 transcript/translation 스트림 연결
+- Resume prompt:
+  - `Step 8 is complete. Start services/realtime with OPENAI_API_KEY, run a live desktop capture session, validate provider.state and transcription.completed events, then build the translation/pipeline stage.`
