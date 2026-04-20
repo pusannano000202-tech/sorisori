@@ -23,17 +23,20 @@ function formatMs(ms: number): string {
 
 export default function TranscriptLane({ gatewayUrl, sessionId }: TranscriptLaneProps) {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [statusMessage, setStatusMessage] = useState("게이트웨이에 연결되지 않았습니다.");
+  const [status, setStatus] = useState<ConnectionStatus>(() =>
+    gatewayUrl && sessionId ? "connecting" : "disconnected",
+  );
+  const [statusMessage, setStatusMessage] = useState(() =>
+    gatewayUrl && sessionId
+      ? `세션 ${sessionId}에 연결 중...`
+      : "게이트웨이에 연결되지 않았습니다.",
+  );
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     if (!gatewayUrl || !sessionId) {
       return;
     }
-
-    setStatus("connecting");
-    setStatusMessage("게이트웨이에 연결 중...");
 
     const ws = new WebSocket(gatewayUrl);
     wsRef.current = ws;
@@ -49,14 +52,8 @@ export default function TranscriptLane({ gatewayUrl, sessionId }: TranscriptLane
       );
       ws.send(
         JSON.stringify({
-          type: "session.start",
+          type: "session.join",
           sessionId,
-          sourceType: "desktop-loopback",
-          sourceLabel: "web-viewer join",
-          sourceFormat: { sampleRateHz: 24000, channels: 1, bitDepth: 16, encoding: "pcm16" },
-          targetFormat: { sampleRateHz: 24000, channels: 1, bitDepth: 16, encoding: "pcm16" },
-          chunkDurationMs: 20,
-          targetLanguage: "ko",
           occurredAt: new Date().toISOString(),
         }),
       );
@@ -72,7 +69,7 @@ export default function TranscriptLane({ gatewayUrl, sessionId }: TranscriptLane
 
       if (payload.type === "session.state") {
         setStatus("connected");
-        setStatusMessage(`세션 연결됨 (${payload.status})`);
+        setStatusMessage(`세션 ${payload.sessionId} 연결됨 (${payload.status})`);
       } else if (payload.type === "provider.state") {
         setStatusMessage(`공급자: ${payload.status} — ${payload.message}`);
       } else if (payload.type === "segment.upserted") {
@@ -83,9 +80,9 @@ export default function TranscriptLane({ gatewayUrl, sessionId }: TranscriptLane
             if (existing >= 0) {
               const next = [...prev];
               next[existing] = upserted.segment;
-              return next;
+              return next.sort((left, right) => left.startMs - right.startMs);
             }
-            return [...prev, upserted.segment];
+            return [...prev, upserted.segment].sort((left, right) => left.startMs - right.startMs);
           });
         }
       } else if (payload.type === "gateway.error") {
@@ -149,7 +146,7 @@ export default function TranscriptLane({ gatewayUrl, sessionId }: TranscriptLane
             <article key={seg.id} className="rounded-[1.6rem] bg-[rgba(255,255,255,0.62)] p-5">
               <div className="mb-3 flex items-center justify-between">
                 <span className="mono-face text-xs uppercase tracking-[0.24em] text-[var(--ink-soft)]">
-                  {formatMs(seg.startMs)}
+                  {formatMs(seg.startMs)} - {formatMs(seg.endMs)}
                 </span>
                 <span className="rounded-full bg-[rgba(32,181,200,0.12)] px-3 py-1 text-xs font-medium text-[var(--cyan)]">
                   {Math.round(seg.confidence * 100)}% confident

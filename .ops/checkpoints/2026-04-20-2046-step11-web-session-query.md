@@ -1,0 +1,40 @@
+# Checkpoint
+
+- Date: 2026-04-20 20:46
+- Branch: `main`
+- Topic: Step 11 complete - web session query param routing and `session.join` viewer flow
+- Files changed:
+  - `apps/web/src/app/session/SessionRuntime.tsx`
+  - `apps/web/src/app/session/TranscriptLane.tsx`
+  - `apps/web/src/app/session/page.tsx`
+  - `.ops/task-log.md`
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/checkpoints/2026-04-20-2046-step11-web-session-query.md`
+- Decisions made:
+  - 웹 viewer는 더 이상 `session.start`를 보내지 않고 `session.join`으로만 세션을 구독한다.
+  - 세션 전환 UX는 `/session?id=...` query param 기준으로 구현한다.
+  - 세션 ID가 바뀌면 viewer input과 transcript lane은 remount 방식으로 상태를 초기화한다.
+  - live 검증은 현재 셸 환경에 `OPENAI_API_KEY`, `DEEPL_API_KEY`가 없어 보류한다.
+- Commands run:
+  - `git status --short`
+  - `git log --oneline -5`
+  - `Get-Content .ops/ai-bridge/requests/2026-04-20-1840-from-claude-to-codex-step10-pipeline-live-verify.md`
+  - `Get-Content package.json`
+  - `Get-Content apps/web/src/app/session/page.tsx`
+  - `Get-Content packages/contracts/src/realtime.ts`
+  - `Get-Content apps/web/src/app/session/TranscriptLane.tsx`
+  - `Get-Content services/pipeline/src/server.ts`
+  - `npm run lint -w @sorisori/web`
+  - `npm run typecheck -w @sorisori/web`
+  - `npm run build -w @sorisori/web`
+- Validation result:
+  - web lint passed
+  - web typecheck passed
+  - web build passed
+  - live validation blocked because `OPENAI_API_KEY` and `DEEPL_API_KEY` are not set in the current shell
+- Remaining work:
+  - 전체 스택 live 검증
+  - `services/pipeline` PostgreSQL 영구 저장 연결
+  - pipeline 재시작 후 세그먼트 복원 전략
+- Resume prompt:
+  - `Set OPENAI_API_KEY and DEEPL_API_KEY, run npm run dev:realtime, npm run dev:pipeline, npm run dev:web, then validate /session?id=mvp-session-001 plus pipeline /summary and /segments endpoints.`

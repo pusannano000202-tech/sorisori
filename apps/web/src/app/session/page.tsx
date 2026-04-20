@@ -4,7 +4,7 @@ import {
   MVP_AUDIO_CONVERSION_PLAN,
   MVP_SESSION_METRICS,
 } from "@sorisori/contracts";
-import TranscriptLane from "./TranscriptLane";
+import SessionRuntime from "./SessionRuntime";
 
 const GATEWAY_WS_URL =
   process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? "ws://localhost:8787/ws";
@@ -86,7 +86,7 @@ export default function SessionPage() {
         </aside>
 
         <section className="space-y-6">
-          <TranscriptLane gatewayUrl={GATEWAY_WS_URL} sessionId={DEFAULT_SESSION_ID} />
+          <SessionRuntime gatewayUrl={GATEWAY_WS_URL} defaultSessionId={DEFAULT_SESSION_ID} />
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="glass-panel rounded-[1.8rem] p-5">

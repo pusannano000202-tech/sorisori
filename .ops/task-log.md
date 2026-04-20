@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 10 완료 - services/pipeline 구현 (SegmentStore + REST API + gateway WS 구독)
+- 현재 단계: Phase 0 / Step 11 완료 - 웹 세션 ID 동적 입력 및 `session.join` 기반 viewer 라우팅
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -57,6 +57,13 @@
   - `services/pipeline/src/server.test.ts` 신규 — mock 게이트웨이 기반 통합 테스트
   - `package.json`에 `check:pipeline`, `test:pipeline` 스크립트 추가
   - contracts/realtime/pipeline 타입 체크 + 빌드 + 테스트 모두 통과
+- Step 11 완료:
+  - `apps/web/src/app/session/SessionRuntime.tsx` 신규 작성
+  - 웹 세션 화면에서 `/session?id=...` query param으로 viewer 대상 세션을 전환할 수 있게 연결
+  - `apps/web/src/app/session/TranscriptLane.tsx`가 `session.start` 대신 `session.join`을 사용하도록 수정
+  - 세션 전환 시 transcript lane이 새 세션 기준으로 remount/reconnect 되도록 정리
+  - 세그먼트 upsert 정렬을 `startMs` 기준으로 안정화
+  - web lint, typecheck, build 모두 통과
 - 다음 우선 작업:
   - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
     1. `npm run dev:realtime` → 게이트웨이 시작
@@ -64,8 +71,8 @@
     3. 데스크톱 앱 → 세션 시작 → 30초 캡처
     4. `GET http://localhost:8788/sessions/mvp-session-001/summary` 로 번역 요약 확인
     5. 웹 세션 화면에서 실시간 자막 확인
-  - 세션 ID 동적 입력 UI (선택)
   - 세그먼트 영구 저장 (PostgreSQL) — Phase 1 우선순위
+  - pipeline 재시작 후 기존 세그먼트 복원 전략
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`

@@ -18,6 +18,9 @@
 - desktop -> realtime gateway 업링크 및 metrics 브리지 구현
 - OpenAI realtime transcription bridge 구현
 - desktop 디버그 화면에 gateway/transcript 패널 연결
+- DeepL 번역이 포함된 `segment.upserted` 브로드캐스트 구현
+- `services/pipeline` in-memory segment store + REST API 구현
+- 웹 세션 화면에서 `session.join` 기반 viewer 구독 및 `/session?id=...` 라우팅 구현
 
 ## 현재 기술 기준
 
@@ -29,10 +32,10 @@
 
 ## 현재 다음 우선순위
 
-1. `capture-metrics`를 기준으로 30초 live 검증 절차 확정
-2. OpenAI transcription delta/completed 이벤트를 안정적인 세그먼트 모델로 정제
-3. DeepL 번역 단계와 transcript 이벤트를 연결
-4. 웹 세션 화면에 transcript/translation 스트림을 연결
+1. `OPENAI_API_KEY` + `DEEPL_API_KEY` 기준 전체 스택 30초 live 검증
+2. `services/pipeline`에 PostgreSQL 영구 저장 연결
+3. pipeline 재시작 후 세그먼트 복원 전략 확정
+4. 세션 요약/기록 화면을 pipeline REST API와 연결
 
 ## 지금 주의할 점
 
@@ -41,3 +44,4 @@
 - 같은 파일군을 Codex와 Claude가 동시에 최종 수정하지 않는다.
 - 확정 설계 변경은 먼저 문서에 남긴다.
 - desktop `audio/worker.rs`와 OpenAI bridge의 현재 동작은 유지한 채, Step 9는 pipeline/translation 중심으로 확장한다.
+- 웹 viewer는 오디오 없이 `session.join`만 보내는 구독자 역할을 유지한다.
