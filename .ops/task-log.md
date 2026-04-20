@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 13 완료 - /history 페이지 pipeline API 연동
+- 현재 단계: Phase 0 / Step 14 완료 - 세션 상세 페이지(`/session/[id]`) 추가
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -70,6 +70,14 @@
   - pipeline 응답 없으면 빈 목록 표시 (graceful fallback)
   - 세션 클릭 시 `/session?id=:sessionId`로 이동
   - web tsc check 통과
+- Step 14 완료:
+  - `apps/web/src/lib/pipeline.ts` 신규 작성
+  - pipeline `/sessions`, `/summary`, `/segments` 응답을 재사용하는 공통 fetch/format 유틸 추가
+  - `apps/web/src/app/session/[id]/page.tsx` 신규 작성
+  - 세션 상세 페이지에서 요약 텍스트, 세그먼트 전체 목록, live viewer 이동 링크를 함께 제공
+  - `apps/web/src/app/history/page.tsx` 링크를 `/session/[id]` 상세 페이지로 변경
+  - pipeline not-found / unavailable 상황을 상세 페이지에서 분리 렌더링
+  - web lint, typecheck, build 모두 통과
 - 다음 우선 작업:
   - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
     1. `npm run dev:realtime` → 게이트웨이 시작
@@ -77,6 +85,7 @@
     3. 데스크톱 앱 → 세션 시작 → 30초 캡처
     4. `GET http://localhost:8788/sessions/mvp-session-001/summary` 로 번역 요약 확인
     5. 웹 세션 화면에서 실시간 자막 확인
+    6. 웹 `/history`, `/session/[id]`, `/session?id=...` 경로 교차 확인
   - 세그먼트 영구 저장 (PostgreSQL) — Phase 1 우선순위
   - pipeline 재시작 후 기존 세그먼트 복원 전략
 - 최신 handoff 자료:

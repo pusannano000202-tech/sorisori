@@ -1,0 +1,41 @@
+# Checkpoint
+
+- Date: 2026-04-20 21:46
+- Branch: `main`
+- Topic: Step 14 complete - session detail page with pipeline summary and segment archive
+- Files changed:
+  - `apps/web/src/lib/pipeline.ts`
+  - `apps/web/src/app/history/page.tsx`
+  - `apps/web/src/app/session/[id]/page.tsx`
+  - `.ops/task-log.md`
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/checkpoints/2026-04-20-2146-step14-session-detail-page.md`
+- Decisions made:
+  - `/session`은 live viewer, `/session/[id]`는 archive detail 역할로 분리한다.
+  - pipeline REST fetch 로직은 `apps/web/src/lib/pipeline.ts`로 공통화한다.
+  - 기록 화면은 상세 페이지로 이동하고, 상세 페이지에서 다시 live viewer로 이동할 수 있게 둔다.
+  - pipeline 비가동과 session not-found는 상세 페이지에서 서로 다른 안내 화면으로 처리한다.
+- Commands run:
+  - `git status --short`
+  - `git log --oneline -6`
+  - `Get-Content apps/web/src/app/history/page.tsx`
+  - `Get-Content services/pipeline/src/server.ts`
+  - `Get-Content packages/contracts/src/session.ts`
+  - `Get-Content apps/web/src/app/page.tsx`
+  - `Get-Content apps/web/src/app/layout.tsx`
+  - `Get-Content .ops/task-log.md`
+  - `Get-Content .ops/ai-bridge/shared-context.md`
+  - `npm run lint -w @sorisori/web`
+  - `npm run typecheck -w @sorisori/web`
+  - `npm run build -w @sorisori/web`
+- Validation result:
+  - web lint passed
+  - web typecheck passed
+  - web build passed
+  - dynamic route `/session/[id]` added successfully
+- Remaining work:
+  - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
+  - PostgreSQL 영구 저장 실제 경로 검증
+  - pipeline 재시작 후 세그먼트 복원 전략
+- Resume prompt:
+  - `Run realtime, pipeline, and web together; verify /history -> /session/[id] -> /session?id=... navigation with a real captured session, then move to persistent replay or deployment work.`

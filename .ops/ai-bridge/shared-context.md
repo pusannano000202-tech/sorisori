@@ -21,6 +21,8 @@
 - DeepL 번역이 포함된 `segment.upserted` 브로드캐스트 구현
 - `services/pipeline` in-memory segment store + REST API 구현
 - 웹 세션 화면에서 `session.join` 기반 viewer 구독 및 `/session?id=...` 라우팅 구현
+- 웹 기록 화면에서 pipeline `/sessions`를 SSR로 조회
+- `/session/[id]` 세션 상세 페이지에서 요약/세그먼트 아카이브 조회 구현
 
 ## 현재 기술 기준
 
@@ -35,7 +37,7 @@
 1. `OPENAI_API_KEY` + `DEEPL_API_KEY` 기준 전체 스택 30초 live 검증
 2. `services/pipeline`에 PostgreSQL 영구 저장 연결
 3. pipeline 재시작 후 세그먼트 복원 전략 확정
-4. 세션 요약/기록 화면을 pipeline REST API와 연결
+4. 기록/상세/라이브 화면 간 네비게이션과 데이터 일관성 검증
 
 ## 지금 주의할 점
 
@@ -45,3 +47,4 @@
 - 확정 설계 변경은 먼저 문서에 남긴다.
 - desktop `audio/worker.rs`와 OpenAI bridge의 현재 동작은 유지한 채, Step 9는 pipeline/translation 중심으로 확장한다.
 - 웹 viewer는 오디오 없이 `session.join`만 보내는 구독자 역할을 유지한다.
+- pipeline REST API를 쓰는 기록/상세 화면은 서비스 비가동 시 graceful fallback을 유지한다.

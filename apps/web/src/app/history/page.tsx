@@ -1,50 +1,5 @@
 import Link from "next/link";
-import type { SessionSummary } from "@sorisori/contracts";
-
-interface PipelineSessionEntry {
-  sessionId: string;
-  totalSegments: number;
-  firstSegmentAt: string | null;
-  lastSegmentAt: string | null;
-}
-
-interface PipelineSessionsResponse {
-  sessions: PipelineSessionEntry[];
-}
-
-function formatDuration(firstAt: string | null, lastAt: string | null): string {
-  if (!firstAt || !lastAt) return "—";
-  const diffMs = new Date(lastAt).getTime() - new Date(firstAt).getTime();
-  if (diffMs <= 0) return "—";
-  const totalSec = Math.floor(diffMs / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}m ${String(s).padStart(2, "0")}s`;
-}
-
-function toSessionSummary(entry: PipelineSessionEntry): SessionSummary {
-  return {
-    id: entry.sessionId,
-    title: entry.sessionId,
-    date: entry.firstSegmentAt ? entry.firstSegmentAt.slice(0, 10) : "—",
-    durationLabel: formatDuration(entry.firstSegmentAt, entry.lastSegmentAt),
-    archiveStatus: entry.totalSegments > 0 ? "saved" : "draft",
-    sourceLanguage: "en",
-    targetLanguage: "ko",
-  };
-}
-
-async function fetchSessions(): Promise<SessionSummary[]> {
-  const base = process.env.PIPELINE_API_URL ?? "http://127.0.0.1:8788";
-  try {
-    const res = await fetch(`${base}/sessions`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = (await res.json()) as PipelineSessionsResponse;
-    return data.sessions.map(toSessionSummary);
-  } catch {
-    return [];
-  }
-}
+import { fetchSessions } from "@/lib/pipeline";
 
 export default async function HistoryPage() {
   const sessions = await fetchSessions();
@@ -67,7 +22,7 @@ export default async function HistoryPage() {
           <p className="text-center text-[var(--ink-soft)]">저장된 세션이 없습니다.</p>
         )}
         {sessions.map((session) => (
-          <Link key={session.id} href={`/session?id=${session.id}`}>
+          <Link key={session.id} href={`/session/${encodeURIComponent(session.id)}`}>
             <article className="glass-panel cursor-pointer rounded-[1.8rem] p-5 transition-opacity hover:opacity-80 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
