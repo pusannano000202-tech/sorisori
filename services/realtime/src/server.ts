@@ -23,6 +23,7 @@ import type {
   RealtimePingMessage,
   RealtimeProviderStateMessage,
   RealtimeSegmentUpsertedMessage,
+  RealtimeSessionJoinMessage,
   RealtimeSessionStartMessage,
   RealtimeSessionStateMessage,
   RealtimeSessionStopMessage,
@@ -248,6 +249,14 @@ export async function startRealtimeGatewayServer(
     nextSession.chunkDurationMs = payload.chunkDurationMs;
     nextSession.updatedAt = nowIso();
     sessions.set(payload.sessionId, nextSession);
+
+    // Auto-add any clients that already declared interest via session.join
+    for (const conn of clients.values()) {
+      if (conn.sessionId === payload.sessionId) {
+        nextSession.connectedClientIds.add(conn.connectionId);
+      }
+    }
+
     return nextSession;
   }
 
@@ -433,6 +442,18 @@ export async function startRealtimeGatewayServer(
       case "gateway.ping": {
         const _ping = payload as RealtimePingMessage;
         safeSend(socket, buildPong());
+        return;
+      }
+      case "session.join": {
+        const joinPayload = payload as RealtimeSessionJoinMessage;
+        client.sessionId = joinPayload.sessionId;
+        const joinTarget = sessions.get(joinPayload.sessionId);
+        if (joinTarget) {
+          joinTarget.connectedClientIds.add(connectionId);
+          joinTarget.updatedAt = nowIso();
+          broadcastToSession(joinTarget.sessionId, buildSessionState(joinTarget));
+        }
+        // If session doesn't exist yet, client.sessionId is set so upsertSession will auto-add this client later.
         return;
       }
       case "session.start": {

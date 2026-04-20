@@ -18,7 +18,9 @@
     "build:realtime": "npm run build -w @sorisori/realtime",
     "check:contracts": "npm run check -w @sorisori/contracts",
     "check:realtime": "npm run check -w @sorisori/realtime",
-    "test:realtime": "npm run test -w @sorisori/realtime"
+    "check:pipeline": "npm run check -w @sorisori/pipeline",
+    "test:realtime": "npm run test -w @sorisori/realtime",
+    "test:pipeline": "npm run test -w @sorisori/pipeline"
   },
   "engines": {
     "node": ">=24.0.0"

@@ -56,6 +56,12 @@ export interface RealtimeSessionStopMessage {
   occurredAt: string;
 }
 
+export interface RealtimeSessionJoinMessage {
+  type: "session.join";
+  sessionId: string;
+  occurredAt: string;
+}
+
 export interface RealtimePingMessage {
   type: "gateway.ping";
   occurredAt: string;
@@ -64,6 +70,7 @@ export interface RealtimePingMessage {
 export type RealtimeGatewayClientMessage =
   | GatewayHelloMessage
   | RealtimeSessionStartMessage
+  | RealtimeSessionJoinMessage
   | RealtimeAudioChunkAppendMessage
   | RealtimeCaptureMetricsMessage
   | RealtimeSessionStopMessage

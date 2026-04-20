@@ -1,0 +1,43 @@
+# Checkpoint
+
+- Date: 2026-04-20 18:40
+- Branch: `main`
+- Topic: Step 10 complete - services/pipeline segment store + REST API + gateway WebSocket subscription
+- Files changed:
+  - `packages/contracts/src/realtime.ts`
+  - `services/realtime/src/server.ts`
+  - `services/pipeline/package.json`
+  - `services/pipeline/tsconfig.json` (new)
+  - `services/pipeline/src/segment-store.ts` (new)
+  - `services/pipeline/src/gateway-client.ts` (new)
+  - `services/pipeline/src/server.ts` (new)
+  - `services/pipeline/src/server.test.ts` (new)
+  - `services/pipeline/README.md`
+  - `package.json`
+  - `.ops/task-log.md`
+- Decisions made:
+  - pipeline 서비스는 `session.join` 메시지로 게이트웨이에 구독 등록한다 (오디오/OpenAI 브리지 미생성).
+  - `session.join` 전에 세션이 없으면 `client.sessionId`만 기록 → 나중에 `session.start`가 오면 `upsertSession`이 자동으로 추가.
+  - SegmentStore는 MVP 단계에서 in-memory. 영구 저장은 Phase 1(PostgreSQL).
+  - 게이트웨이 연결 끊기면 3초 후 자동 재연결.
+  - HTTP 포트 기본값 8788 (realtime: 8787, pipeline: 8788).
+  - `PIPELINE_SESSION_IDS`를 콤마로 구분해 여러 세션 구독 가능.
+- Commands run:
+  - `npm install`
+  - `npm run check -w @sorisori/contracts` → pass
+  - `npm run check -w @sorisori/realtime` → pass
+  - `npm run check -w @sorisori/pipeline` → pass
+  - `npm run test -w @sorisori/realtime` → pass (1/1)
+  - `npm run test -w @sorisori/pipeline` → pass (1/1)
+- Validation result:
+  - all type checks passed
+  - realtime integration test passed
+  - pipeline integration test passed (mock gateway → segment.upserted → REST API 검증)
+- Remaining work:
+  - 전체 스택 live 검증 (OPENAI_API_KEY + DEEPL_API_KEY 필요)
+  - 세션 ID 동적 입력 UI (선택)
+  - PostgreSQL 기반 영구 저장 (Phase 1)
+- Next immediate step:
+  - `OPENAI_API_KEY`, `DEEPL_API_KEY` 설정 → `npm run dev:realtime` + `npm run dev:pipeline` → 데스크톱 세션 시작 → `GET /sessions/mvp-session-001/summary` 결과 확인
+- Resume prompt:
+  - `Step 10 complete. Set OPENAI_API_KEY and DEEPL_API_KEY. Run: npm run dev:realtime (port 8787) + npm run dev:pipeline (port 8788). Start desktop session with sessionId=mvp-session-001. After 30s capture, GET http://localhost:8788/sessions/mvp-session-001/summary to verify translated segments. Check web session page for live subtitles.`

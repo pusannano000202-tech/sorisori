@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 9 완료 - transcript segment assembly + DeepL 번역 + 웹 세션 연결
+- 현재 단계: Phase 0 / Step 10 완료 - services/pipeline 구현 (SegmentStore + REST API + gateway WS 구독)
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -46,11 +46,26 @@
   - `docs/TRD.md`에 segment assembly / 번역 단계 기준 단락 추가
   - contracts check, realtime check, realtime build, realtime test 모두 통과
   - web tsc check 통과
+- Step 10 완료:
+  - `packages/contracts/src/realtime.ts`에 `RealtimeSessionJoinMessage` 추가, `RealtimeGatewayClientMessage` 유니온 확장
+  - `services/realtime/src/server.ts`에 `session.join` 핸들러 추가, `upsertSession`에서 기존 join 클라이언트 자동 포함 로직 추가
+  - `services/pipeline/package.json` 실제 의존성으로 업데이트
+  - `services/pipeline/tsconfig.json` 신규
+  - `services/pipeline/src/segment-store.ts` 신규 — in-memory SegmentStore (upsert, getSegments, getSummary)
+  - `services/pipeline/src/gateway-client.ts` 신규 — WebSocket 클라이언트 (자동 재연결, session.join)
+  - `services/pipeline/src/server.ts` 신규 — HTTP 서버 (/health, /sessions, /sessions/:id/segments, /sessions/:id/summary)
+  - `services/pipeline/src/server.test.ts` 신규 — mock 게이트웨이 기반 통합 테스트
+  - `package.json`에 `check:pipeline`, `test:pipeline` 스크립트 추가
+  - contracts/realtime/pipeline 타입 체크 + 빌드 + 테스트 모두 통과
 - 다음 우선 작업:
-  - `capture-metrics` 30초 live 검증 실행 (OPENAI_API_KEY + DEEPL_API_KEY 환경 설정 후)
-  - 웹 세션 화면에서 `NEXT_PUBLIC_REALTIME_WS_URL`, `NEXT_PUBLIC_DEFAULT_SESSION_ID` env 설정 및 end-to-end 검증
-  - `TranscriptLane`의 세션 ID를 UI에서 입력 가능하도록 확장 (선택)
-  - `services/pipeline` 서비스 골격 실제 구현 (세그먼트 저장, 후처리)
+  - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
+    1. `npm run dev:realtime` → 게이트웨이 시작
+    2. `npm run dev:pipeline` → 세그먼트 저장 서비스 시작
+    3. 데스크톱 앱 → 세션 시작 → 30초 캡처
+    4. `GET http://localhost:8788/sessions/mvp-session-001/summary` 로 번역 요약 확인
+    5. 웹 세션 화면에서 실시간 자막 확인
+  - 세션 ID 동적 입력 UI (선택)
+  - 세그먼트 영구 저장 (PostgreSQL) — Phase 1 우선순위
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
