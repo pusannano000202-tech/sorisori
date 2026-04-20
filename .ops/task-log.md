@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 6 완료 - persistent loopback worker + session state 연결
+- 현재 단계: Phase 0 / Step 7 완료 - desktop audio-chunk -> realtime gateway uplink 연결
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -20,17 +20,25 @@
   - 데스크톱 디버그 화면에 start/stop 및 이벤트 로그 UI 추가
   - `docs/TRD.md`에 worker/session 상태 모델 반영
   - `desktop check` 및 `cargo test` 검증 통과
+  - `packages/contracts`에 realtime gateway 메시지 계약 추가
+  - `services/realtime`에 `GET /health` + `WS /ws` 기반 WebSocket gateway 구현
+  - in-memory 세션 추적, `audio.chunk.ack`, `session.state`, `capture.metrics.observed` 응답 구현
+  - realtime 서비스용 타입체크, 빌드, WebSocket 테스트 추가
+  - desktop `audio-chunk`를 `PCM16 base64` 형태로 services/realtime에 업링크하도록 UI 브리지 추가
+  - gateway 미연결 시 데이터 메시지 무한 큐잉을 막는 드롭 가드레일 추가
+  - 첫 안전 커밋 `37c9fe4` 생성
 - 다음 우선 작업:
-  - 변환된 청크를 `services/realtime` 업링크 계약으로 연결
   - `services/realtime`와 `services/pipeline`이 공통 계약을 쓰도록 연결
+  - OpenAI realtime transcription uplink adapter 추가
   - 웹 세션 화면에 실제 세션 상태 이벤트 구조 반영
-  - 데스크톱 앱에서 세션 시작/중지 UI와 연결
   - OpenAI realtime transcription uplink 연결 전 `capture-metrics` 30초 검증
+  - DeepL 번역 단계와 transcript 이벤트 연결
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
   - `.ops/checkpoints/2026-04-20-1545-step6-handoff-to-claude.md`
   - `.ops/checkpoints/2026-04-20-1606-step6-persistent-worker.md`
+  - `.ops/checkpoints/2026-04-20-1633-step7-realtime-uplink.md`
 - 작업 규칙:
   - 시작 전 현재 작업을 여기에 갱신
   - 종료 전 체크포인트 또는 커밋 남기기

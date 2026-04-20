@@ -15,7 +15,10 @@
     "dev:pipeline": "npm run dev -w @sorisori/pipeline",
     "build:web": "npm run build -w @sorisori/web",
     "build:desktop": "npm run build -w @sorisori/desktop",
-    "check:contracts": "npm run check -w @sorisori/contracts"
+    "build:realtime": "npm run build -w @sorisori/realtime",
+    "check:contracts": "npm run check -w @sorisori/contracts",
+    "check:realtime": "npm run check -w @sorisori/realtime",
+    "test:realtime": "npm run test -w @sorisori/realtime"
   },
   "engines": {
     "node": ">=24.0.0"

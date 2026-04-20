@@ -1,0 +1,127 @@
+import type { AudioSourceType, AudioStreamFormat } from "./audio";
+import type { SessionLifecycleStatus } from "./session";
+
+export type RealtimeClientRole = "desktop-capture" | "web-viewer" | "pipeline";
+
+export interface GatewayHelloMessage {
+  type: "gateway.hello";
+  clientId: string;
+  role: RealtimeClientRole;
+  occurredAt: string;
+}
+
+export interface RealtimeSessionStartMessage {
+  type: "session.start";
+  sessionId: string;
+  sourceType: AudioSourceType;
+  sourceLabel: string;
+  sourceFormat: AudioStreamFormat;
+  targetFormat: AudioStreamFormat;
+  chunkDurationMs: number;
+  targetLanguage: "ko";
+  occurredAt: string;
+}
+
+export interface RealtimeAudioChunkAppendMessage {
+  type: "audio.chunk.append";
+  sessionId: string;
+  chunkIndex: number;
+  pcm16Base64: string;
+  frameCount: number;
+  sampleRateHz: number;
+  durationMs: number;
+  peakLevel: number;
+  timestampMs: number;
+  occurredAt: string;
+}
+
+export interface RealtimeCaptureMetricsMessage {
+  type: "capture.metrics";
+  sessionId: string;
+  chunkIndex: number;
+  inputFrames: number;
+  outputFrames: number;
+  peakLevel: number;
+  silent: boolean;
+  dataDiscontinuity: boolean;
+  sourceSampleRateHz: number;
+  chunkTimestampMs: number;
+  occurredAt: string;
+}
+
+export interface RealtimeSessionStopMessage {
+  type: "session.stop";
+  sessionId: string;
+  reason: string;
+  occurredAt: string;
+}
+
+export interface RealtimePingMessage {
+  type: "gateway.ping";
+  occurredAt: string;
+}
+
+export type RealtimeGatewayClientMessage =
+  | GatewayHelloMessage
+  | RealtimeSessionStartMessage
+  | RealtimeAudioChunkAppendMessage
+  | RealtimeCaptureMetricsMessage
+  | RealtimeSessionStopMessage
+  | RealtimePingMessage;
+
+export interface GatewayWelcomeMessage {
+  type: "gateway.welcome";
+  connectionId: string;
+  acceptedRoles: RealtimeClientRole[];
+  occurredAt: string;
+}
+
+export interface RealtimeSessionStateMessage {
+  type: "session.state";
+  sessionId: string;
+  status: SessionLifecycleStatus;
+  connectedClients: number;
+  totalAudioChunks: number;
+  latestChunkIndex: number | null;
+  occurredAt: string;
+}
+
+export interface RealtimeAudioChunkAckMessage {
+  type: "audio.chunk.ack";
+  sessionId: string;
+  chunkIndex: number;
+  totalAudioChunks: number;
+  totalAudioBytes: number;
+  occurredAt: string;
+}
+
+export interface RealtimeCaptureMetricsObservedMessage {
+  type: "capture.metrics.observed";
+  sessionId: string;
+  chunkIndex: number;
+  peakLevel: number;
+  silent: boolean;
+  dataDiscontinuity: boolean;
+  occurredAt: string;
+}
+
+export interface GatewayPongMessage {
+  type: "gateway.pong";
+  occurredAt: string;
+}
+
+export interface GatewayErrorMessage {
+  type: "gateway.error";
+  message: string;
+  recoverable: boolean;
+  sessionId?: string;
+  occurredAt: string;
+}
+
+export type RealtimeGatewayServerMessage =
+  | GatewayWelcomeMessage
+  | RealtimeSessionStateMessage
+  | RealtimeAudioChunkAckMessage
+  | RealtimeCaptureMetricsObservedMessage
+  | GatewayPongMessage
+  | GatewayErrorMessage;

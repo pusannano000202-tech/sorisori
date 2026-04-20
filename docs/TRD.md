@@ -67,6 +67,9 @@ Windows MVP에서는 가상 오디오 케이블 설치를 강제하지 않는다
 - 역할: 클라이언트와 서버 간 양방향 스트리밍
 - 프로토콜: WebSocket 우선
 - 책임: 세션 인증, 오디오 프레임 수신, 번역 결과 브로드캐스트, 연결 재시도
+- 현재 구현 기준 엔드포인트: `GET /health`, `WS /ws`
+- 초기 uplink 메시지: `gateway.hello`, `session.start`, `audio.chunk.append`, `capture.metrics`, `session.stop`
+- 초기 응답 메시지: `gateway.welcome`, `session.state`, `audio.chunk.ack`, `capture.metrics.observed`, `gateway.error`
 
 #### STT Pipeline
 
@@ -193,6 +196,12 @@ Desktop App의 Step 6 기준 캡처 구조는 아래처럼 나눈다.
 6. uplink 연결 전에는 `capture-metrics`로 peak level, silent flag, discontinuity flag, timestamp를 먼저 검증한다.
 
 이 구조를 기준으로 다음 단계에서 `audio-chunk`를 realtime gateway 업링크에 연결한다.
+
+### Realtime gateway uplink 형태
+
+Step 7 기준 Desktop App은 Tauri 이벤트 브리지에서 `audio-chunk`를 `PCM16 little-endian base64` 문자열로 변환 없이 그대로 `services/realtime`의 `WS /ws`에 보낸다. `capture-metrics`는 별도 메시지로 같이 보내서 uplink 전 품질을 검증한다.
+
+이 단계의 목적은 아직 OpenAI 공급자 연결이 아니라, `desktop -> gateway` 전송 경로와 세션 상태 메시지의 안정화를 먼저 확보하는 것이다.
 
 ### 음성 인식
 

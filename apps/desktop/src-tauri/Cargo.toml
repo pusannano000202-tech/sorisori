@@ -34,6 +34,7 @@ thiserror = "2.0.18"
 uuid = "=1.12.1"
 
 [target.'cfg(windows)'.dependencies]
+base64 = "0.22.1"
 dasp = "0.11.0"
 rubato = "=0.16.2"
 wasapi = "0.23.0"

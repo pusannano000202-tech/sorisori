@@ -1,0 +1,52 @@
+# Checkpoint
+
+- Date: 2026-04-20 16:33
+- Branch: `main`
+- Topic: Step 7 complete - desktop uplink to realtime gateway
+- Files changed:
+  - `packages/contracts/src/realtime.ts`
+  - `packages/contracts/src/index.ts`
+  - `services/realtime/package.json`
+  - `services/realtime/tsconfig.json`
+  - `services/realtime/src/server.ts`
+  - `services/realtime/src/server.test.ts`
+  - `services/realtime/README.md`
+  - `apps/desktop/src-tauri/Cargo.toml`
+  - `apps/desktop/src-tauri/Cargo.lock`
+  - `apps/desktop/src-tauri/src/audio/worker.rs`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/styles.css`
+  - `docs/TRD.md`
+  - `.ops/task-log.md`
+  - `package.json`
+  - `package-lock.json`
+- Decisions made:
+  - realtime gateway는 `GET /health` + `WS /ws` 조합으로 시작한다.
+  - desktop uplink payload는 `PCM16 base64`를 사용한다.
+  - gateway 미연결 시 오디오/메트릭 데이터는 무한 큐잉하지 않고 드롭한다.
+  - gateway 응답은 `session.state`, `audio.chunk.ack`, `capture.metrics.observed`를 최소 집합으로 둔다.
+- Commands run:
+  - `npm install`
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/contracts`
+  - `npm run check -w @sorisori/realtime`
+  - `npm run build -w @sorisori/realtime`
+  - `npm run test -w @sorisori/realtime`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `node --check apps/desktop/src/main.js`
+  - `node --input-type=module -e "import('./services/realtime/dist/server.js').then(() => console.log('realtime-dist-import-ok'))"`
+- Validation result:
+  - contracts check passed
+  - realtime check passed
+  - realtime build passed
+  - realtime websocket test passed
+  - desktop check passed
+  - cargo test passed
+- Remaining work:
+  - `services/realtime`에서 OpenAI realtime transcription adapter 연결
+  - `capture-metrics`를 실제 30초 세션으로 검증
+  - transcript/translation 이벤트를 웹 세션 화면에 연결
+- Resume prompt:
+  - `Step 7 is complete. Start services/realtime, run the desktop app against WS /ws, validate capture-metrics for 30 seconds, then add the OpenAI realtime transcription uplink adapter as Step 8.`

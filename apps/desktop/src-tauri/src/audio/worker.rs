@@ -16,6 +16,8 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 #[cfg(windows)]
+use base64::Engine;
+#[cfg(windows)]
 use rubato::FftFixedIn;
 #[cfg(windows)]
 use wasapi::{
@@ -82,7 +84,7 @@ pub struct AudioChunkEvent {
     pub frames: usize,
     pub duration_ms: u16,
     pub peak_level: f32,
-    pub samples: Vec<i16>,
+    pub pcm16_base64: String,
 }
 
 #[derive(Debug)]
@@ -311,6 +313,12 @@ fn run_capture_thread(
                     let timestamp_ms = started_at.elapsed().as_millis() as u64;
                     let output_frames = samples.len();
                     let silent_flag = pending_silent || peak_level <= SILENCE_PEAK_THRESHOLD;
+                    let pcm16_bytes = samples
+                        .iter()
+                        .flat_map(|sample| sample.to_le_bytes())
+                        .collect::<Vec<_>>();
+                    let pcm16_base64 =
+                        base64::engine::general_purpose::STANDARD.encode(pcm16_bytes);
 
                     let _ = event_tx.send(WorkerEvent::Metrics(CaptureMetricsEvent {
                         chunk_index,
@@ -330,7 +338,7 @@ fn run_capture_thread(
                         frames: output_frames,
                         duration_ms: WORKER_CHUNK_DURATION_MS,
                         peak_level,
-                        samples,
+                        pcm16_base64,
                     }));
 
                     chunk_index += 1;
