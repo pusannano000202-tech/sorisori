@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   DEFAULT_SESSION_SOURCES,
@@ -86,7 +87,9 @@ export default function SessionPage() {
         </aside>
 
         <section className="space-y-6">
-          <SessionRuntime gatewayUrl={GATEWAY_WS_URL} defaultSessionId={DEFAULT_SESSION_ID} />
+          <Suspense fallback={<div className="glass-panel rounded-[2rem] p-6 text-sm text-[var(--ink-soft)]">세션 로딩 중...</div>}>
+            <SessionRuntime gatewayUrl={GATEWAY_WS_URL} defaultSessionId={DEFAULT_SESSION_ID} />
+          </Suspense>
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="glass-panel rounded-[1.8rem] p-5">
