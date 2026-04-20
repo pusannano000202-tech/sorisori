@@ -1,0 +1,49 @@
+# Checkpoint
+
+- Date: 2026-04-19 17:37
+- Branch: main
+- Topic: Phase 0 / Step 2 - web scaffold
+- Files changed:
+  - `apps/web/package.json`
+  - `apps/web/README.md`
+  - `apps/web/tsconfig.json`
+  - `apps/web/next-env.d.ts`
+  - `apps/web/next.config.ts`
+  - `apps/web/postcss.config.mjs`
+  - `apps/web/eslint.config.mjs`
+  - `apps/web/src/app/globals.css`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/app/session/page.tsx`
+  - `apps/web/src/app/history/page.tsx`
+  - `apps/web/src/app/loading.tsx`
+  - `apps/web/src/app/api/health/route.ts`
+  - `.ops/task-log.md`
+  - `package-lock.json`
+- Decisions made:
+  - 웹 앱은 Next.js App Router 기준으로 시작한다.
+  - 현재 웹은 제품 설명 + 세션 제어 정보 구조 + 기록 구조를 먼저 보여주는 방향으로 간다.
+  - ESLint는 `eslint-config-next@16.2.4`와 호환되는 `eslint@9.39.4`로 맞춘다.
+- Commands run:
+  - `npm view next version`
+  - `npm view react version`
+  - `npm view typescript version`
+  - `npm view tailwindcss version`
+  - `npm install`
+  - `npm run lint -w @sorisori/web`
+  - `npm run typecheck -w @sorisori/web`
+  - `npm run build -w @sorisori/web`
+- Validation result:
+  - `lint` 통과
+  - `typecheck` 통과
+  - `next build` 통과
+  - 정적 라우트 `/`, `/session`, `/history` 생성 확인
+- Remaining work:
+  - 실제 세션 생성 로직 없음
+  - 공통 타입 계약 없음
+  - Realtime Gateway 연결 없음
+  - 데스크톱 앱과 아직 연결되지 않음
+- Next immediate step:
+  - `packages/contracts`에 세션 상태, 자막 세그먼트, 공급자 인터페이스 타입을 정의한다.
+- Resume prompt:
+  - `docs/TRD.md`와 `apps/web/src/app/session/page.tsx`를 읽고, packages/contracts에 세션/자막 타입을 먼저 정의해. 그 다음 web 쪽이 그 타입을 import 하도록 연결해서 이후 realtime service와 desktop app이 같은 계약을 쓰게 만들어.`

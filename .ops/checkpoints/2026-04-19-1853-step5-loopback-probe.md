@@ -1,0 +1,35 @@
+# Checkpoint
+
+- Date: 2026-04-19 18:53
+- Branch: `main`
+- Topic: Step 5 - Runtime WASAPI loopback probe and conversion diagnostics
+- Files changed:
+  - `apps/desktop/src-tauri/src/audio/capture.rs`
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `apps/desktop/src-tauri/src/lib.rs`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/README.md`
+  - `.ops/task-log.md`
+- Decisions made:
+  - Step 5 uses a short runtime probe instead of a long-lived background worker.
+  - Loopback probe targets the default Windows render endpoint and opens it in shared loopback mode.
+  - Preferred capture format is float32 with up to 2 channels at the device sample rate.
+  - If the preferred float32 format is rejected, the probe falls back to the device mix format and reports that in diagnostics.
+  - Conversion diagnostics use `rubato` for resampling and `dasp` for PCM16 conversion.
+- Commands run:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- Validation result:
+  - `desktop check` passed
+  - `cargo test` passed
+- Remaining work:
+  - Promote the short probe into a persistent loopback worker thread.
+  - Stream normalized chunks into a realtime session uplink.
+  - Add start/stop session controls in the desktop UI.
+  - Replace the temporary diagnostic-only flow with session-aware state updates.
+- Next immediate step:
+  - Implement a long-lived capture worker that continuously emits normalized PCM16/24kHz chunks.
+- Resume prompt:
+  - `Step 5 is complete. Read .ops/task-log.md and apps/desktop/src-tauri/src/audio/{capture,format}.rs, then turn the short loopback runtime probe into a persistent worker that pushes normalized chunks to the realtime gateway contract. Preserve the Rust 1.86 toolchain pin and keep WASAPI loopback as the Windows MVP path.`

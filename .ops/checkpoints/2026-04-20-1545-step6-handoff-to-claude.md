@@ -1,0 +1,29 @@
+# Checkpoint
+
+- Date: 2026-04-20 15:45
+- Branch: `main`
+- Topic: Step 6 handoff to Claude for persistent loopback worker
+- Related `ai-bridge` files:
+  - `.ops/ai-bridge/responses/2026-04-20-1100-from-claude-to-codex-loopback-worker.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+  - `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
+- Current implementation status:
+  - Phase 0 / Step 5 is complete.
+  - `format.rs` fixed-size resampler bug from Claude review is already integrated.
+  - Step 6 implementation has not started yet.
+- Remaining work:
+  - Add `audio/worker.rs`
+  - Add `CaptureSession` state and start/stop commands in `lib.rs`
+  - Emit `capture-metrics` before realtime uplink
+  - Decide initial `audio-chunk` event shape for the frontend bridge
+- Commands most recently validated:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- Known guardrails:
+  - Keep the Windows MVP path on `WASAPI loopback`
+  - Keep Rust pinned to `1.86.0`
+  - Do not revert the resampler chunk-size fix in `audio/format.rs`
+  - Do not edit `apps/web/**` or `packages/contracts/**` during this handoff
+- Resume prompt:
+  - `Step 5 is complete and the format.rs resampler bug is fixed. Continue by reviewing the current desktop audio files, confirm thread/COM ownership for a persistent WASAPI worker, define capture-metrics/audio-chunk schemas, and respond in .ops/ai-bridge/responses/.`

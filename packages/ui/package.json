@@ -1,0 +1,6 @@
+{
+  "name": "@sorisori/ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared UI components for web and desktop surfaces"
+}

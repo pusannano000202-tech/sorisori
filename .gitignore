@@ -1,0 +1,28 @@
+# Node / web
+node_modules/
+.next/
+dist/
+build/
+coverage/
+npm-debug.log*
+*.tsbuildinfo
+
+# Rust / Tauri
+target/
+**/target/
+src-tauri/target/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Generated checkpoints can be committed selectively.
+# Keep the folder itself in git, not every transient file.
+.ops/checkpoints/*.tmp

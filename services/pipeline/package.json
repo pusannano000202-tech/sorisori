@@ -1,0 +1,10 @@
+{
+  "name": "@sorisori/pipeline",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Transcription and translation orchestration service",
+  "scripts": {
+    "dev": "node -e \"console.log('Pipeline service scaffold is the next step.')\"",
+    "build": "node -e \"console.log('Pipeline service scaffold is the next step.')\""
+  }
+}

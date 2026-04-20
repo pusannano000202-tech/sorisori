@@ -1,0 +1,37 @@
+# Task Log
+
+- 현재 단계: Phase 0 / Step 6 완료 - persistent loopback worker + session state 연결
+- 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
+- 이번 세션 완료:
+  - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
+  - 기본 출력 장치 이름, 상태, mix format, capture format, buffer 정보 읽기 연결
+  - 짧은 프리뷰 패킷을 실제로 잡아오는 capture preview 로직 추가
+  - `audio/format`에 실제 `rubato` + `dasp` 기반 변환 진단 함수 추가
+  - float32 loopback preview를 `PCM16 / mono / 24kHz`로 바꾸는 self-test 추가
+  - Claude 응답 `2026-04-20-1100-from-claude-to-codex-loopback-worker.md` 확인
+  - `format.rs`의 `FftFixedIn` chunk size 고정 누락 버그 수정
+  - resampler 고정 청크 계약 테스트 추가
+  - Step 6 인수인계를 위한 Claude 요청서 작성
+  - Step 6 handoff 메모 및 체크포인트 저장
+  - `format.rs`에 worker용 공개 변환 함수 추가
+  - `audio/worker.rs` 신규 작성 및 persistent WASAPI loopback worker 연결
+  - `lib.rs`에 `Mutex<Option<CaptureSession>>` 상태와 start/stop command 추가
+  - `capture-session`, `capture-metrics`, `audio-chunk` 이벤트 브리지 추가
+  - 데스크톱 디버그 화면에 start/stop 및 이벤트 로그 UI 추가
+  - `docs/TRD.md`에 worker/session 상태 모델 반영
+  - `desktop check` 및 `cargo test` 검증 통과
+- 다음 우선 작업:
+  - 변환된 청크를 `services/realtime` 업링크 계약으로 연결
+  - `services/realtime`와 `services/pipeline`이 공통 계약을 쓰도록 연결
+  - 웹 세션 화면에 실제 세션 상태 이벤트 구조 반영
+  - 데스크톱 앱에서 세션 시작/중지 UI와 연결
+  - OpenAI realtime transcription uplink 연결 전 `capture-metrics` 30초 검증
+- 최신 handoff 자료:
+  - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+  - `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
+  - `.ops/checkpoints/2026-04-20-1545-step6-handoff-to-claude.md`
+  - `.ops/checkpoints/2026-04-20-1606-step6-persistent-worker.md`
+- 작업 규칙:
+  - 시작 전 현재 작업을 여기에 갱신
+  - 종료 전 체크포인트 또는 커밋 남기기
+  - 설계 변경 시 TRD 먼저 수정

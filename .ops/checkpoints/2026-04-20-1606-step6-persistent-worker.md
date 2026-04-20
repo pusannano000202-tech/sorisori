@@ -1,0 +1,33 @@
+# Checkpoint
+
+- Date: 2026-04-20 16:06
+- Branch: `main`
+- Topic: Step 6 complete - persistent loopback worker and capture session bridge
+- Files changed:
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `apps/desktop/src-tauri/src/audio/mod.rs`
+  - `apps/desktop/src-tauri/src/audio/worker.rs`
+  - `apps/desktop/src-tauri/src/lib.rs`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/styles.css`
+  - `docs/TRD.md`
+  - `.ops/task-log.md`
+- Decisions made:
+  - worker용 오디오 변환은 `format.rs` 공개 함수로 재사용한다.
+  - `AudioClient` / `AudioCaptureClient` / event handle은 worker 스레드 내부에서 생성하고 소유한다.
+  - Tauri는 `Mutex<Option<CaptureSession>>`으로 단일 active session만 허용한다.
+  - uplink 연결 전 검증용 이벤트는 `capture-session`, `capture-metrics`, `audio-chunk`로 나눈다.
+- Commands run:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- Validation result:
+  - `desktop check` passed
+  - `cargo test` passed
+- Remaining work:
+  - `audio-chunk`를 `services/realtime` 업링크에 연결
+  - `capture-metrics`를 30초 이상 보면서 타이밍/peak/discontinuity 검증
+  - OpenAI realtime transcription + DeepL 경로를 실제 세션으로 연결
+- Resume prompt:
+  - `Step 6 is complete. Read audio/worker.rs and lib.rs, validate capture-metrics for a live 30-second session, then wire audio-chunk into services/realtime as the next step.`

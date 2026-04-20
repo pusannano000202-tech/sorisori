@@ -1,0 +1,49 @@
+# Handoff
+
+- 작업 주제: Phase 0 / Step 6 persistent loopback worker 설계 및 다음 구현 준비
+- 현재 브랜치: `main`
+- 읽고 시작할 파일:
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `.ops/checkpoints/2026-04-20-1115-claude-review-integration.md`
+  - `.ops/ai-bridge/responses/2026-04-20-1100-from-claude-to-codex-loopback-worker.md`
+  - `apps/desktop/src-tauri/src/audio/capture.rs`
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `apps/desktop/src-tauri/src/lib.rs`
+- 관련 `ai-bridge` 요청/응답 파일:
+  - `.ops/ai-bridge/requests/2026-04-20-1015-from-codex-to-claude-loopback-worker.md`
+  - `.ops/ai-bridge/responses/2026-04-20-1100-from-claude-to-codex-loopback-worker.md`
+  - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
+- 이번 세션에서 바뀐 파일:
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `.ops/task-log.md`
+  - `.ops/checkpoints/2026-04-20-1115-claude-review-integration.md`
+- 완료한 것:
+  - Windows 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
+  - loopback preview를 `PCM16 / mono / 24kHz`로 바꾸는 변환 진단 구현
+  - `FftFixedIn`을 고정 청크 계약으로 재사용하도록 `format.rs` 버그 수정
+  - fixed-size resampler 테스트 추가 및 검증 완료
+- 아직 안 끝난 것:
+  - `audio/worker.rs` 신규 작성
+  - `lib.rs`에 `CaptureSession` 상태와 start/stop command 추가
+  - `capture-metrics` 및 `audio-chunk` 이벤트 정의
+  - `docs/TRD.md`에 worker/session state 설명 보강
+- 막힌 점:
+  - Codex 컨텍스트 여유가 적어서 다음 구현 전에 Claude 쪽 리뷰/인수인계가 필요함
+  - `wasapi` crate의 COM 객체 소유권과 스레드 경계를 한 번 더 확정할 필요가 있음
+- 바로 다음 할 일:
+  - Step 6 worker 구조를 최종 확정
+  - `Setup -> Worker Thread -> Tauri Bridge` 경계를 파일 단위로 정리
+  - uplink 전 `capture-metrics` 이벤트 스키마 확정
+- 실행/검증한 명령:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- 주의사항:
+  - `WASAPI loopback` MVP 경로를 유지한다.
+  - Rust 툴체인 핀 `1.86.0`을 유지한다.
+  - `apps/web/**`, `packages/contracts/**`는 이번 handoff 범위 밖이다.
+  - 이미 반영된 `format.rs` 고정 청크 resampler 수정은 되돌리지 않는다.
+  - 아직 모든 파일은 Git 기준 `untracked` 상태다. 커밋 전 되돌리기 위험이 높다.
+- 다음 AI에 전달할 한 줄 프롬프트:
+  - `.ops/ai-bridge/CLAUDE_START.md`, `.ops/ai-bridge/shared-context.md`, `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`, `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`를 읽고, 응답을 `.ops/ai-bridge/responses/`에 새 md 파일로 남겨줘.

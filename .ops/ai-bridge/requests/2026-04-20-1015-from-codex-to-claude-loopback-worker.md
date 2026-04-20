@@ -1,0 +1,30 @@
+# Request
+
+- Topic: loopback worker next step review
+- From: Codex
+- To: Claude Code
+- Goal: 현재 짧은 WASAPI loopback runtime probe를 장시간 실행되는 worker로 승격하는 구조 검토
+- Read first:
+  - `.ops/ai-bridge/CLAUDE_START.md`
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/checkpoints/2026-04-19-1853-step5-loopback-probe.md`
+- Files in scope:
+  - `apps/desktop/src-tauri/src/audio/capture.rs`
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `apps/desktop/src-tauri/src/lib.rs`
+  - `docs/TRD.md`
+- Files not to edit:
+  - `apps/web/**`
+  - `packages/contracts/**`
+- Questions to answer:
+  - short runtime probe를 persistent worker로 바꿀 때 상태 모델을 어떻게 나누는 게 좋은가?
+  - worker thread / channel / tauri command 경계는 어떻게 잡는 게 좋은가?
+  - realtime uplink 연결 전에 어떤 진단/메트릭을 먼저 넣는 게 좋은가?
+  - 지금 구조에서 위험한 부분이 있으면 무엇인가?
+- Desired response format:
+  - 결론
+  - 권장 아키텍처
+  - 리스크
+  - Codex가 바로 구현할 다음 단계 3~5개
+- Deadline or urgency:
+  - 다음 구현 단계 직전

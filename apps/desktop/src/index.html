@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoriSori Desktop</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">SoriSori Desktop</p>
+        <h1>Windows 시스템 오디오 진단이 실제로 도는 데스크톱 시작점</h1>
+        <p class="lede">
+          이 화면은 기본 출력 장치를 열어 loopback preview를 읽고, 그 결과를
+          `PCM16/mono/24kHz` 변환 진단까지 보여주는 런타임 점검 화면입니다.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Runtime Diagnostics</p>
+            <h2>Rust loopback probe</h2>
+          </div>
+          <div class="button-row">
+            <button id="refresh-button" class="secondary-button">상태 다시 읽기</button>
+            <button id="start-button" class="primary-button">캡처 시작</button>
+            <button id="stop-button" class="secondary-button" disabled>캡처 중지</button>
+          </div>
+        </div>
+        <pre id="snapshot-output" class="snapshot">loading...</pre>
+        <div class="status-grid">
+          <div>
+            <p class="eyebrow">Session</p>
+            <h3>capture-session events</h3>
+            <pre id="session-output" class="snapshot compact">waiting for session events...</pre>
+          </div>
+          <div>
+            <p class="eyebrow">Stream</p>
+            <h3>capture-metrics + audio-chunk</h3>
+            <pre id="metrics-output" class="snapshot compact">waiting for capture metrics...</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <p class="eyebrow">Capture</p>
+          <h3>WASAPI loopback</h3>
+          <p>기본 출력 장치를 열어 짧은 preview 패킷이 실제로 들어오는지 검사합니다.</p>
+        </article>
+        <article class="card">
+          <p class="eyebrow">Convert</p>
+          <h3>rubato + dasp</h3>
+          <p>잡아온 float32 preview를 PCM16/mono/24kHz 목표 포맷으로 변환 진단합니다.</p>
+        </article>
+        <article class="card">
+          <p class="eyebrow">Relay</p>
+          <h3>Realtime uplink</h3>
+          <p>다음 단계에서 이 preview 흐름을 장시간 세션 업링크로 승격할 예정입니다.</p>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

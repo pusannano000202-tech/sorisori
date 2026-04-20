@@ -1,0 +1,45 @@
+# Checkpoint
+
+- Date: 2026-04-19 18:35
+- Branch: `main`
+- Topic: Step 4 - Desktop Tauri scaffold and Windows audio pipeline placeholders
+- Files changed:
+  - `rust-toolchain.toml`
+  - `apps/desktop/package.json`
+  - `apps/desktop/README.md`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/styles.css`
+  - `apps/desktop/src-tauri/Cargo.toml`
+  - `apps/desktop/src-tauri/Cargo.lock`
+  - `apps/desktop/src-tauri/build.rs`
+  - `apps/desktop/src-tauri/tauri.conf.json`
+  - `apps/desktop/src-tauri/capabilities/default.json`
+  - `apps/desktop/src-tauri/icons/icon.ico`
+  - `apps/desktop/src-tauri/src/main.rs`
+  - `apps/desktop/src-tauri/src/lib.rs`
+  - `apps/desktop/src-tauri/src/audio/mod.rs`
+  - `apps/desktop/src-tauri/src/audio/capture.rs`
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `.ops/task-log.md`
+  - `docs/TRD.md`
+- Decisions made:
+  - Desktop MVP shell uses `Tauri + Rust + WASAPI loopback`.
+  - Audio format adapter target stays `PCM16 / mono / 24kHz`.
+  - Project-local Rust toolchain is pinned to `1.86.0` to keep Tauri ecosystem dependencies stable.
+  - Tauri bundle generation stays disabled for now and uses a placeholder icon for validation.
+- Commands run:
+  - `rustup toolchain install 1.86.0-x86_64-pc-windows-msvc`
+  - `cargo generate-lockfile --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+- Validation result:
+  - `npm run check -w @sorisori/desktop` passed
+- Remaining work:
+  - Replace placeholder `bootstrap_*` audio snapshots with a real WASAPI loopback stream.
+  - Implement `rubato` resampling and `dasp` downmix/sample conversion.
+  - Connect desktop capture output to realtime gateway contracts.
+  - Replace temporary icon asset with branded icon set.
+- Next immediate step:
+  - Build the real capture service inside `apps/desktop/src-tauri/src/audio/capture.rs`.
+- Resume prompt:
+  - `Step 4 is complete. Read docs/TRD.md, .ops/task-log.md, and apps/desktop/src-tauri/src/audio/*.rs, then implement real WASAPI loopback capture and feed it into the format adapter pipeline. Do not remove the Rust 1.86.0 toolchain pin.`

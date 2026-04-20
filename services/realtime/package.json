@@ -1,0 +1,10 @@
+{
+  "name": "@sorisori/realtime",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Realtime gateway for audio sessions and subtitle streaming",
+  "scripts": {
+    "dev": "node -e \"console.log('Realtime service scaffold is the next step.')\"",
+    "build": "node -e \"console.log('Realtime service scaffold is the next step.')\""
+  }
+}

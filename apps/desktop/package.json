@@ -1,0 +1,15 @@
+{
+  "name": "@sorisori/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tauri desktop app for Windows system audio capture",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.6.0"
+  }
+}

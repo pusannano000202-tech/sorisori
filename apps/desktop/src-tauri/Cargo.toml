@@ -1,0 +1,39 @@
+[package]
+name = "sorisori-desktop"
+version = "0.1.0"
+description = "Tauri desktop app for real-time foreign audio to Korean subtitles"
+authors = ["OpenAI Codex"]
+edition = "2021"
+
+[lib]
+name = "sorisori_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+cargo_toml = "=0.22.1"
+embed-resource = "=3.0.4"
+indexmap = "=2.13.0"
+tauri-build = { version = "=2.3.1" }
+tauri-codegen = "=2.3.1"
+tauri-utils = "=2.6.0"
+tauri-winres = "=0.3.1"
+uuid = "=1.12.1"
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_with = "=3.12.0"
+indexmap = "=2.13.0"
+tauri = { version = "=2.6.0" }
+tauri-macros = "=2.3.0"
+tauri-runtime = "=2.7.0"
+tauri-runtime-wry = { version = "=2.7.0", default-features = false }
+tauri-utils = "=2.6.0"
+time = "=0.3.36"
+thiserror = "2.0.18"
+uuid = "=1.12.1"
+
+[target.'cfg(windows)'.dependencies]
+dasp = "0.11.0"
+rubato = "=0.16.2"
+wasapi = "0.23.0"

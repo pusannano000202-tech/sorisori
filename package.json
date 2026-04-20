@@ -1,0 +1,23 @@
+{
+  "name": "sorisori",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Real-time foreign audio to Korean subtitle platform",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @sorisori/web",
+    "dev:desktop": "npm run dev -w @sorisori/desktop",
+    "dev:realtime": "npm run dev -w @sorisori/realtime",
+    "dev:pipeline": "npm run dev -w @sorisori/pipeline",
+    "build:web": "npm run build -w @sorisori/web",
+    "build:desktop": "npm run build -w @sorisori/desktop",
+    "check:contracts": "npm run check -w @sorisori/contracts"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

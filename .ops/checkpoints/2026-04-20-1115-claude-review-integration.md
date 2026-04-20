@@ -1,0 +1,29 @@
+# Checkpoint
+
+- Date: 2026-04-20 11:15
+- Branch: `main`
+- Topic: Claude review integration - fixed resampler chunk contract
+- Related `ai-bridge` response:
+  - `.ops/ai-bridge/responses/2026-04-20-1100-from-claude-to-codex-loopback-worker.md`
+- Files changed:
+  - `apps/desktop/src-tauri/src/audio/format.rs`
+  - `.ops/task-log.md`
+- Decisions made:
+  - `FftFixedIn` must be initialized once with a fixed chunk size and then reused.
+  - Preview conversion should also respect the same fixed chunk contract so worker code can reuse the same path later.
+  - Worker-oriented chunk duration is now represented as `20ms`.
+- Commands run:
+  - `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - `npm run check -w @sorisori/desktop`
+  - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+- Validation result:
+  - `desktop check` passed
+  - `cargo test` passed
+- Remaining work:
+  - Add `audio/worker.rs`
+  - Add Tauri session state and start/stop capture commands
+  - Emit `capture-metrics` before realtime uplink
+- Next immediate step:
+  - Implement the persistent loopback worker around fixed-size PCM16 chunks.
+- Resume prompt:
+  - `Claude review has been integrated. Read the ai-bridge response and format.rs, then implement audio/worker.rs using a persistent WASAPI loopback thread that owns the COM objects and reuses one fixed-size rubato resampler instance.`
