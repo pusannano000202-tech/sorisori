@@ -1,0 +1,41 @@
+# Checkpoint
+
+- Date: 2026-04-20 19:00
+- Branch: `main`
+- Topic: Step 12 complete - PostgreSQL + Prisma persistence for services/pipeline
+- Files changed:
+  - `services/pipeline/package.json`
+  - `services/pipeline/prisma/schema.prisma` (new)
+  - `services/pipeline/src/store-interface.ts` (new)
+  - `services/pipeline/src/segment-store.ts` (async ISegmentStore 구현)
+  - `services/pipeline/src/postgres-segment-store.ts` (new)
+  - `services/pipeline/src/server.ts`
+  - `services/pipeline/README.md`
+  - `docker-compose.yml` (new)
+  - `.ops/task-log.md`
+- Decisions made:
+  - `DATABASE_URL` 미설정 → in-memory SegmentStore (기존 테스트 그대로 동작)
+  - `DATABASE_URL` 설정 → PostgresSegmentStore (Prisma + PostgreSQL)
+  - `PostgresSegmentStore`는 동적 import로 로드 → DATABASE_URL 없을 때 Prisma 클라이언트 초기화 불필요
+  - Prisma output을 `../../../node_modules/.prisma/client`로 설정 (npm workspaces 루트 호이스팅 대응)
+  - Prisma 모델: `Session`, `Segment` (cascade delete)
+  - SegmentStore 메서드 전부 async로 통일 (ISegmentStore 인터페이스)
+  - docker-compose.yml: postgres:16-alpine, 포트 5432, DB명/유저/비번 모두 `sorisori`
+- Commands run:
+  - `npm install`
+  - `npx prisma generate --schema services/pipeline/prisma/schema.prisma`
+  - `npm run check -w @sorisori/contracts` → pass
+  - `npm run check -w @sorisori/realtime` → pass
+  - `npm run check -w @sorisori/pipeline` → pass
+  - `npm run test -w @sorisori/realtime` → pass (1/1)
+  - `npm run test -w @sorisori/pipeline` → pass (1/1, in-memory fallback 동작 확인)
+- Remaining work:
+  - `docker compose up -d` + `prisma migrate dev` 실행 후 PostgreSQL 모드 live 검증
+  - 전체 스택 live 검증 (OPENAI_API_KEY + DEEPL_API_KEY)
+  - 세션 히스토리 웹 페이지 (`/history` 페이지에 pipeline `/sessions` 연동)
+- Next immediate step:
+  - `docker compose up -d`
+  - `DATABASE_URL=postgresql://sorisori:sorisori@localhost:5432/sorisori npx prisma migrate dev --schema services/pipeline/prisma/schema.prisma --name init`
+  - 전체 스택 실행 후 `/sessions/:id/summary` 검증
+- Resume prompt:
+  - `Step 12 complete. Start with: docker compose up -d. Run migrate: DATABASE_URL=postgresql://sorisori:sorisori@localhost:5432/sorisori npx prisma migrate dev --schema services/pipeline/prisma/schema.prisma --name init. Then run full stack with OPENAI_API_KEY, DEEPL_API_KEY, and DATABASE_URL set.`

@@ -11,12 +11,14 @@
     "test": "node --test --import tsx/esm src/server.test.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.6.0",
     "@sorisori/contracts": "0.1.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@types/ws": "^8.18.1",
+    "prisma": "^6.6.0",
     "tsx": "^4.20.6",
     "typescript": "6.0.3"
   }

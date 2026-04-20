@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id             String    @id
+  firstSegmentAt DateTime?
+  lastSegmentAt  DateTime?
+  totalSegments  Int       @default(0)
+  segments       Segment[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("sessions")
+}
+
+model Segment {
+  id             String   @id
+  sessionId      String
+  seq            Int
+  startMs        Int
+  endMs          Int
+  sourceText     String
+  translatedText String
+  isFinal        Boolean
+  confidence     Float
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([sessionId, seq])
+  @@map("segments")
+}

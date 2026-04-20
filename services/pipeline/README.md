@@ -10,6 +10,15 @@
 ## 실행
 
 ```bash
+# PostgreSQL 없이 in-memory 모드로 시작
+REALTIME_GATEWAY_WS_URL=ws://127.0.0.1:8787/ws \
+PIPELINE_SESSION_IDS=mvp-session-001 \
+npm run dev -w @sorisori/pipeline
+
+# PostgreSQL 영구 저장 모드로 시작 (docker-compose.yml 이용)
+docker compose up -d
+npx prisma migrate dev --schema services/pipeline/prisma/schema.prisma --name init
+DATABASE_URL=postgresql://sorisori:sorisori@localhost:5432/sorisori \
 REALTIME_GATEWAY_WS_URL=ws://127.0.0.1:8787/ws \
 PIPELINE_SESSION_IDS=mvp-session-001 \
 npm run dev -w @sorisori/pipeline
@@ -23,6 +32,7 @@ npm run dev -w @sorisori/pipeline
 | `PIPELINE_PORT` | `8788` | HTTP 서버 포트 |
 | `REALTIME_GATEWAY_WS_URL` | `ws://127.0.0.1:8787/ws` | 게이트웨이 WebSocket URL |
 | `PIPELINE_SESSION_IDS` | `mvp-session-001` | 구독할 세션 ID (콤마 구분) |
+| `DATABASE_URL` | 없음 | 설정 시 PostgreSQL 저장, 미설정 시 in-memory |
 
 ## REST API
 

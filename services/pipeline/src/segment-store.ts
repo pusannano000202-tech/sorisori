@@ -1,17 +1,14 @@
 import type { TranscriptSegment } from "@sorisori/contracts";
+import type { ISegmentStore, SessionRecord, SegmentSummary } from "./store-interface.js";
 
-export interface SessionRecord {
-  sessionId: string;
+interface InMemorySessionRecord extends SessionRecord {
   segments: TranscriptSegment[];
-  firstSegmentAt: string | null;
-  lastSegmentAt: string | null;
-  totalSegments: number;
 }
 
-export class SegmentStore {
-  private readonly sessions = new Map<string, SessionRecord>();
+export class SegmentStore implements ISegmentStore {
+  private readonly sessions = new Map<string, InMemorySessionRecord>();
 
-  upsert(sessionId: string, segment: TranscriptSegment, occurredAt: string): void {
+  async upsert(sessionId: string, segment: TranscriptSegment, occurredAt: string): Promise<void> {
     let record = this.sessions.get(sessionId);
     if (!record) {
       record = {
@@ -39,30 +36,40 @@ export class SegmentStore {
     record.totalSegments = record.segments.length;
   }
 
-  getSession(sessionId: string): SessionRecord | undefined {
-    return this.sessions.get(sessionId);
+  async getSession(sessionId: string): Promise<SessionRecord | undefined> {
+    const record = this.sessions.get(sessionId);
+    if (!record) return undefined;
+    return {
+      sessionId: record.sessionId,
+      firstSegmentAt: record.firstSegmentAt,
+      lastSegmentAt: record.lastSegmentAt,
+      totalSegments: record.totalSegments,
+    };
   }
 
-  getAllSessions(): SessionRecord[] {
-    return Array.from(this.sessions.values());
+  async getAllSessions(): Promise<SessionRecord[]> {
+    return Array.from(this.sessions.values()).map((r) => ({
+      sessionId: r.sessionId,
+      firstSegmentAt: r.firstSegmentAt,
+      lastSegmentAt: r.lastSegmentAt,
+      totalSegments: r.totalSegments,
+    }));
   }
 
-  getSegments(sessionId: string): TranscriptSegment[] {
+  async getSegments(sessionId: string): Promise<TranscriptSegment[]> {
     return this.sessions.get(sessionId)?.segments ?? [];
   }
 
-  getSummary(sessionId: string): { sourceText: string; translatedText: string; segmentCount: number } {
-    const segments = this.getSegments(sessionId);
+  async getSummary(sessionId: string): Promise<SegmentSummary> {
+    const segments = this.sessions.get(sessionId)?.segments ?? [];
     return {
-      sourceText: segments
-        .map((s) => s.sourceText)
-        .filter(Boolean)
-        .join(" "),
-      translatedText: segments
-        .map((s) => s.translatedText)
-        .filter(Boolean)
-        .join(" "),
+      sourceText: segments.map((s) => s.sourceText).filter(Boolean).join(" "),
+      translatedText: segments.map((s) => s.translatedText).filter(Boolean).join(" "),
       segmentCount: segments.length,
     };
+  }
+
+  async close(): Promise<void> {
+    // no-op for in-memory store
   }
 }

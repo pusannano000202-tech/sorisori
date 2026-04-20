@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 11 완료 - 웹 세션 ID 동적 입력 및 `session.join` 기반 viewer 라우팅
+- 현재 단계: Phase 0 / Step 12 완료 - PostgreSQL + Prisma 영구 저장 (DATABASE_URL 없으면 in-memory fallback)
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
