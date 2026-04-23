@@ -31,6 +31,7 @@ apps/desktop/src-tauri/sidecar-bin/
 
 # PyInstaller build cache
 services/local-ai/build/
+services/local-ai/models/
 
 # OS / editor
 .DS_Store

@@ -1,4 +1,4 @@
-"""local-ai service — faster-whisper STT + MarianMT translation (en/ja → ko)."""
+"""local-ai service — faster-whisper STT + Argos/Marian translation (en/ja → ko)."""
 
 from __future__ import annotations
 
@@ -31,6 +31,10 @@ SAMPLE_RATE = 24_000
 
 # MarianMT model names
 MODEL_EN_KO = "Helsinki-NLP/opus-mt-tc-big-en-ko"
+ARGOS_PACKS = [
+    ("en", "ko"),
+    ("ja", "en"),
+]
 # Languages that use no spaces between words — use char count for fragment filter
 CJK_LANGS = {"ja", "zh", "ko"}
 
@@ -41,6 +45,10 @@ CJK_LANGS = {"ja", "zh", "ko"}
 _whisper_model = None
 
 # Translation models: keyed by source lang code
+_argos_languages: dict[str, object] = {}
+_argos_translations: dict[tuple[str, str], object] = {}
+_argos_ready = False
+
 _mt_tokenizers: dict[str, object] = {}
 _mt_models: dict[str, object] = {}
 _mt_ready = False
@@ -80,8 +88,38 @@ def _load_mt_model(lang_code: str, model_name: str) -> bool:
         return False
 
 
+def _load_argos():
+    global _argos_languages, _argos_translations, _argos_ready
+
+    _argos_languages = {}
+    _argos_translations = {}
+    _argos_ready = False
+
+    try:
+        import argostranslate.translate  # type: ignore[import-untyped]
+
+        _argos_languages = {
+            lang.code: lang for lang in argostranslate.translate.get_installed_languages()
+        }
+        installed_codes = sorted(_argos_languages.keys())
+        log.info("Argos installed languages: %s", ", ".join(installed_codes) or "(none)")
+
+        required_missing = [
+            f"{src}->{dst}" for src, dst in ARGOS_PACKS if src not in _argos_languages or dst not in _argos_languages
+        ]
+        if required_missing:
+            log.warning("Argos language packs missing: %s", ", ".join(required_missing))
+            return
+
+        _argos_ready = True
+        log.info("Argos translation ready.")
+    except Exception as exc:
+        log.warning("Argos load failed: %s", exc)
+
+
 def _load_translation():
     global _mt_ready
+    _load_argos()
     ok_en = _load_mt_model("en", MODEL_EN_KO)
     _mt_ready = ok_en
 
@@ -219,6 +257,61 @@ def _translate_in_chunks(text: str, src_lang: str) -> Optional[str]:
     return _normalize_text_for_display(merged)
 
 
+def _get_argos_translation(src_lang: str, dst_lang: str):
+    src = _argos_languages.get(src_lang)
+    dst = _argos_languages.get(dst_lang)
+    if src is None or dst is None:
+        return None
+
+    key = (src_lang, dst_lang)
+    cached = _argos_translations.get(key)
+    if cached is not None:
+        return cached
+
+    try:
+        translator = src.get_translation(dst)
+        _argos_translations[key] = translator
+        return translator
+    except Exception as exc:
+        log.warning("Argos %s->%s translator load failed: %s", src_lang, dst_lang, exc)
+        return None
+
+
+def _argos_translate_once(text: str, src_lang: str, dst_lang: str) -> Optional[str]:
+    translator = _get_argos_translation(src_lang, dst_lang)
+    if translator is None:
+        return None
+
+    try:
+        translated = translator.translate(text)
+        return _normalize_text_for_display(translated)
+    except Exception as exc:
+        log.warning("Argos %s->%s error: %s", src_lang, dst_lang, exc)
+        return None
+
+
+def _translate_with_argos(text: str, src_lang: str, target_lang: str) -> Optional[str]:
+    chunks = _split_translation_chunks(text)
+    if not chunks:
+        return ""
+
+    translated_chunks: list[str] = []
+    for chunk in chunks:
+        translated = _argos_translate_once(chunk, src_lang, target_lang)
+        if translated is None and src_lang != "en":
+            bridged_english = _argos_translate_once(chunk, src_lang, "en")
+            if bridged_english is not None:
+                translated = _argos_translate_once(bridged_english, "en", target_lang)
+
+        if translated is None:
+            return None
+
+        translated_chunks.append(translated)
+
+    merged = " ".join(part for part in translated_chunks if part)
+    return _normalize_text_for_display(merged)
+
+
 def _is_short_fragment(text: str, lang: Optional[str]) -> bool:
     """True if the text is too short to be meaningful."""
     normalized = _normalize_text_for_display(text)
@@ -266,8 +359,15 @@ def health():
         "service": "sorisori-local-ai",
         "whisper_model": MODEL_SIZE,
         "whisper_ready": _whisper_model is not None,
-        "translation_ready": _mt_ready,
-        "translation_langs": list(_mt_models.keys()),
+        "translation_ready": _argos_ready or _mt_ready,
+        "translation_engines": {
+            "argos": _argos_ready,
+            "marian": _mt_ready,
+        },
+        "translation_langs": {
+            "argos": sorted(_argos_languages.keys()),
+            "marian": sorted(_mt_models.keys()),
+        },
     })
 
 
@@ -359,24 +459,21 @@ def translate(req: TranslateRequest):
     if req.target_lang == "ko" and (req.source_lang == "ko" or _contains_hangul(normalized_text)):
         return TranslateResponse(translatedText=normalized_text)
 
-    if not _mt_ready:
+    if not (_argos_ready or _mt_ready):
         raise HTTPException(503, "Translation model not ready.")
 
-    # If text still contains CJK characters and we have no direct model, drop it
-    # (means Whisper's translate task failed — better to return nothing than garbage)
-    if _is_cjk(normalized_text) and req.source_lang not in _mt_models:
-        raise HTTPException(422, f"CJK text with no {req.source_lang}→ko model available.")
-
     src = req.source_lang
-
-    # Try direct model first
-    result = _translate_in_chunks(normalized_text, src)
-    if result is not None:
-        return TranslateResponse(translatedText=result)
-
-    # Fallback: non-English source with English-looking text → en→ko
+    candidate_sources = [src]
     if src != "en" and not _is_cjk(normalized_text):
-        result = _translate_in_chunks(normalized_text, "en")
+        candidate_sources.append("en")
+
+    for candidate_src in dict.fromkeys(candidate_sources):
+        result = _translate_with_argos(normalized_text, candidate_src, req.target_lang)
+        if result is not None:
+            return TranslateResponse(translatedText=result)
+
+    for candidate_src in dict.fromkeys(candidate_sources):
+        result = _translate_in_chunks(normalized_text, candidate_src)
         if result is not None:
             return TranslateResponse(translatedText=result)
 

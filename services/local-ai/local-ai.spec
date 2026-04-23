@@ -34,6 +34,9 @@ a = Analysis(
         # faster-whisper / ctranslate2
         'ctranslate2',
         'faster_whisper',
+        'argostranslate',
+        'argostranslate.package',
+        'argostranslate.translate',
         'huggingface_hub',
         'tokenizers',
         # MarianMT / transformers (en→ko translation)
@@ -54,8 +57,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # stanza / heavy torch extensions not needed
-        'stanza',
+        # heavy torch extensions not needed
         'torchvision',
         'torchaudio',
         # GUI / unused

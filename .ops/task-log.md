@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 24 완료 - 로컬 번역 전처리/분할 품질 개선
+- 현재 단계: Phase 0 / Step 25 완료 - Argos 우선 번역 복구 및 장문 품질 재검증
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -183,9 +183,28 @@
   - `services/local-ai/model-download.py`를 현재 MarianMT 기반 스택에 맞게 갱신
   - `services/local-ai/test_text_processing.py` 신규 작성
   - local-ai Python 단위 테스트 3건 통과
+- Step 25 완료 (2026-04-23):
+  - 장문 영어 샘플 2건과 일본어 샘플 1건으로 `POST /translate` 실측
+  - MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko`가 장문에서 사실상 unusable 수준의 깨진 출력을 내는 것 확인
+  - `services/local-ai/main.py`를 수정해 Argos Translate를 기본 번역 엔진으로 복구
+  - `en→ko` direct, `ja→en→ko` bridge, 영어로 변환된 일본어 transcript에 대한 `en→ko` fallback 경로 정리
+  - `services/local-ai/requirements.txt`에 `argostranslate==1.9.6` 복구
+  - `services/local-ai/model-download.py`에 Argos 언어팩 (`en→ko`, `ja→en`) 자동 설치 추가
+  - `services/local-ai/local-ai.spec`에 Argos hiddenimports 추가, PyInstaller exclude 조정
+  - `services/local-ai/test_text_processing.py`에 Argos 우선/영어 fallback 테스트 추가 (총 5건 통과)
+  - `.gitignore`에 `services/local-ai/models/` 추가
+  - local-ai 재기동 후 health 확인:
+    - `translation_engines.argos=true`
+    - `translation_engines.marian=true`
+    - `translation_langs.argos=[en, ja, ko]`
+  - 재측정 결과:
+    - 이전 `완전 깨짐` 수준에서 `의미 전달은 가능한 거친 번역` 수준으로 개선
+    - 영어 장문은 대체로 요지 전달 가능, 문장 자연스러움은 추가 보정 여지 있음
+    - 일본어 direct text는 `ja→en→ko` 경로로 동작하지만 요약/축약 경향이 강함
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
+  - local-ai 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
   - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
