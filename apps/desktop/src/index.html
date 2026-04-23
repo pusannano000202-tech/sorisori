@@ -3,76 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SoriSori Desktop</title>
+    <title>소리소리</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">SoriSori Desktop</p>
-        <h1>Windows 시스템 오디오 진단이 실제로 도는 데스크톱 시작점</h1>
-        <p class="lede">
-          이 화면은 기본 출력 장치를 열어 loopback preview를 읽고, 그 결과를
-          `PCM16/mono/24kHz` 변환 진단까지 보여주는 런타임 점검 화면입니다.
-        </p>
-      </section>
+    <div class="app-shell">
 
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Runtime Diagnostics</p>
-            <h2>Rust loopback probe</h2>
-          </div>
-          <div class="button-row">
-            <button id="refresh-button" class="secondary-button">상태 다시 읽기</button>
-            <button id="start-button" class="primary-button">캡처 시작</button>
-            <button id="stop-button" class="secondary-button" disabled>캡처 중지</button>
-          </div>
+      <!-- 헤더 -->
+      <header class="app-header">
+        <div class="app-brand">
+          <span class="brand-icon">🎙</span>
+          <span class="brand-name">소리소리</span>
         </div>
-        <pre id="snapshot-output" class="snapshot">loading...</pre>
-        <div class="status-grid">
-          <div>
-            <p class="eyebrow">Session</p>
-            <h3>capture-session events</h3>
-            <pre id="session-output" class="snapshot compact">waiting for session events...</pre>
+        <div class="status-badge" id="status-badge">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">초기화 중...</span>
+        </div>
+      </header>
+
+      <!-- 자막 영역 (메인) -->
+      <section class="subtitle-panel">
+        <div class="subtitle-scroll" id="subtitle-scroll">
+          <div class="subtitle-placeholder" id="subtitle-placeholder">
+            <p>캡처를 시작하면 한국어 자막이 여기에 표시됩니다.</p>
           </div>
-          <div>
-            <p class="eyebrow">Stream</p>
-            <h3>capture-metrics + audio-chunk</h3>
-            <pre id="metrics-output" class="snapshot compact">waiting for capture metrics...</pre>
-          </div>
-          <div>
-            <p class="eyebrow">Gateway</p>
-            <h3>services/realtime uplink</h3>
-            <pre id="gateway-output" class="snapshot compact">waiting for realtime gateway...</pre>
-          </div>
-          <div>
-            <p class="eyebrow">Transcript</p>
-            <h3>OpenAI realtime transcription</h3>
-            <pre id="transcript-output" class="snapshot compact">waiting for transcript events...</pre>
-          </div>
+          <div id="subtitle-list"></div>
+        </div>
+
+        <!-- 실시간 전사 중 표시 -->
+        <div class="live-indicator" id="live-indicator" hidden>
+          <span class="live-dot"></span>
+          <span id="live-text"></span>
         </div>
       </section>
 
-      <section class="grid">
-        <article class="card">
-          <p class="eyebrow">Capture</p>
-          <h3>WASAPI loopback</h3>
-          <p>기본 출력 장치를 열어 짧은 preview 패킷이 실제로 들어오는지 검사합니다.</p>
-        </article>
-        <article class="card">
-          <p class="eyebrow">Convert</p>
-          <h3>rubato + dasp</h3>
-          <p>잡아온 float32 preview를 PCM16/mono/24kHz 목표 포맷으로 변환 진단합니다.</p>
-        </article>
-        <article class="card">
-          <p class="eyebrow">Relay</p>
-          <h3>Realtime uplink</h3>
-          <p>다음 단계에서 이 preview 흐름을 장시간 세션 업링크로 승격할 예정입니다.</p>
-        </article>
-      </section>
-    </main>
+      <!-- 컨트롤 -->
+      <footer class="control-bar">
+        <div class="control-left">
+          <label class="session-label" for="session-id-input">세션 ID</label>
+          <input
+            id="session-id-input"
+            class="session-input"
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="mvp-session-001"
+          />
+          <button id="reset-session-id-button" class="icon-button" title="기본값 복구">↩</button>
+        </div>
+        <div class="control-right">
+          <button id="start-button" class="capture-button start">캡처 시작</button>
+          <button id="stop-button" class="capture-button stop" disabled>캡처 중지</button>
+        </div>
+      </footer>
 
+      <!-- 고급 정보 (접을 수 있음) -->
+      <details class="debug-details">
+        <summary>고급 정보 (개발자용)</summary>
+        <div class="debug-grid">
+          <div>
+            <p class="debug-label">장치 진단</p>
+            <pre id="snapshot-output" class="debug-pre">로드 중...</pre>
+          </div>
+          <div>
+            <p class="debug-label">캡처 세션</p>
+            <pre id="session-output" class="debug-pre">대기 중...</pre>
+          </div>
+          <div>
+            <p class="debug-label">오디오 스트림</p>
+            <pre id="metrics-output" class="debug-pre">대기 중...</pre>
+          </div>
+          <div>
+            <p class="debug-label">게이트웨이</p>
+            <pre id="gateway-output" class="debug-pre">대기 중...</pre>
+          </div>
+        </div>
+      </details>
+
+    </div>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

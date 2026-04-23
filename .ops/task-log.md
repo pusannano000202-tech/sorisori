@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 14 완료 - 세션 상세 페이지(`/session/[id]`) 추가
+- 현재 단계: Phase 0 / Step 18 완료 - 로컬 STT 파이프라인 end-to-end 검증
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -78,26 +78,93 @@
   - `apps/web/src/app/history/page.tsx` 링크를 `/session/[id]` 상세 페이지로 변경
   - pipeline not-found / unavailable 상황을 상세 페이지에서 분리 렌더링
   - web lint, typecheck, build 모두 통과
+- Step 15 완료:
+  - `apps/desktop/src/index.html`에 공유 세션 ID 입력 UI와 기본값 복구 버튼 추가
+  - `apps/desktop/src/main.js`가 랜덤 UUID 대신 사용자가 고른 세션 ID(`mvp-session-001` 기본)를 사용하도록 수정
+  - 세션 실행 중에는 세션 ID 입력을 잠그고, 현재/다음 세션 상태 힌트를 표시하도록 정리
+  - 루트 `.env.example` 추가 — realtime / pipeline / web 공통 환경 변수 템플릿 정리
+  - `README.md`, `apps/desktop/README.md`, `apps/web/README.md`, `services/pipeline/README.md`를 현재 구현 상태 기준으로 갱신
+  - `node --check apps/desktop/src/main.js` 통과
+  - `npm run check -w @sorisori/desktop` 통과
+  - 현재 셸 기준 `OPENAI_API_KEY`, `DEEPL_API_KEY`, `DATABASE_URL` 모두 미설정 확인
+  - `npm run dev:realtime`, `npm run dev:pipeline`, `npm run dev:web` 기동 확인
+  - `GET /health` 및 `GET /api/health`, `/session`, `/history`, `/session/mvp-session-001` 응답 확인
+  - realtime / pipeline / web stderr 로그 비어 있음 확인 후 dev 프로세스 정리
+- Step 16 시작:
+  - 로컬 다운로드형 오픈소스 피벗 방향을 `provider layer 교체`로 정리
+  - `docs/DECISIONS/0003-local-downloadable-open-source-stack.md` 초안 작성
+  - Claude Code용 Step 16 요청서, handoff 메모, 체크포인트 생성
+- Step 16 완료 (Claude Code):
+  - `packages/contracts/src/realtime.ts`: `RealtimeProviderStateMessage.provider`에 `"local-ai-transcription"` 유니온 추가
+  - `services/realtime/src/local-translation.ts` 신규 — `translateWithLocalAi()` (POST /translate HTTP 클라이언트)
+  - `services/realtime/src/local-transcription-bridge.ts` 신규 — `LocalTranscriptionBridge` (에너지 VAD + 오디오 버퍼링 + POST /transcribe)
+  - `services/realtime/src/server.ts` 업데이트:
+    - `TranscriptionBridge` 공통 인터페이스 추가
+    - `SessionRecord.providerBridge` 타입을 `TranscriptionBridge | null`로 변경
+    - `StartRealtimeGatewayOptions`에 `localAiUrl?: string` 추가 (env: `LOCAL_AI_URL`)
+    - `makeBridgeEventHandler()` 추출 — OpenAI/Local 공통 이벤트 핸들러
+    - `ensureTranscriptionBridge()` — `LOCAL_AI_URL` 있으면 `LocalTranscriptionBridge`, 없으면 OpenAI fallback
+    - 번역: `LOCAL_AI_URL` → `translateWithLocalAi`, 없으면 DeepL fallback
+    - `teardownTranscriptionBridge()` — provider 무관 teardown
+  - `services/local-ai/main.py` 신규 — FastAPI: GET /health, POST /transcribe (faster-whisper), POST /translate (argostranslate)
+  - `services/local-ai/requirements.txt` 신규 — faster-whisper, argostranslate, fastapi, uvicorn, numpy
+  - `services/local-ai/model-download.py` 신규 — 첫 실행 시 모델 다운로드 스크립트
+  - `services/realtime` tsc check 통과
+  - Claude 응답서: `.ops/ai-bridge/responses/2026-04-22-2000-from-claude-step16-local-stack-plan.md`
+- Step 17 완료 (Claude Code):
+  - `services/local-ai/` Python venv 구성 (`services/local-ai/.venv/`)
+  - `pip install -r requirements.txt` 완료 (faster-whisper, argostranslate, fastapi, uvicorn 등)
+  - `python model-download.py` — faster-whisper base 모델 + Argos en→ko 팩 다운로드 완료
+  - `local-ai` 포트 충돌 수정: 8788 → 8789 (pipeline이 8788 사용)
+  - `package.json`에 `dev:local-ai` 스크립트 추가
+  - `.env.example`에 `LOCAL_AI_URL`, `WHISPER_MODEL`, `WHISPER_DEVICE` 항목 추가
+  - `.gitignore`에 `.venv/`, `__pycache__/`, `*.pyc` 추가
+  - 서비스 기동 검증: `GET /health` → `{"whisper_ready":true,"argos_ready":true}`
+  - `POST /translate` 검증: `"Hello, this is a test."` → `"안녕하세요, 이것은 테스트입니다."` 정상
+  - `POST /transcribe` 검증: PCM16 오디오 → transcript 반환 정상
+- Step 18 완료 (Claude Code):
+  - `.env` 파일 생성 (`LOCAL_AI_URL=http://127.0.0.1:8789` 포함)
+  - local-ai + realtime + pipeline 3개 서비스 동시 기동 검증
+  - `services/local-ai/e2e_test.py` 신규 — Python WebSocket 기반 end-to-end 테스트
+  - e2e 테스트 결과:
+    - `gateway.welcome` 수신
+    - `provider.state: ready` — `local-ai-transcription` provider 경로 확인
+    - 오디오 청크 5개 전송 → ack 수신
+    - 침묵 청크 5개 전송 → VAD flush 발동
+    - `transcription.delta` → `transcription.completed` → `segment.upserted` 이벤트 수신
+  - 전체 파이프라인 동작 확인: desktop → realtime → local-ai(faster-whisper) → segment → pipeline 저장
+  - 실음성 transcript는 실제 WASAPI 오디오 입력 시 채워짐 (사인파는 빈 transcript 반환이 정상)
+- Step 19 완료 (2026-04-23):
+  - `apps/desktop/src/index.html` 전면 재설계 — 한국어 자막 표시 중심 UI
+  - `apps/desktop/src/styles.css` 전면 재작성 — 자막 패널, 상태 배지, 컨트롤 바
+  - `apps/desktop/src/main.js` 전면 재작성:
+    - `segment.upserted` 이벤트 → `translatedText` (한국어) + `sourceText` (원문) 자막 표시
+    - `transcription.delta` → 실시간 미리보기 (live indicator)
+    - `provider.state` → 상태 배지 업데이트
+    - 디버그 정보는 접을 수 있는 `<details>` 섹션으로 분리
+  - `apps/desktop/src-tauri/src/lib.rs`: 사이드카 시작 실패 시 앱 크래시 대신 로그만 출력
+  - NSIS 인스톨러 재빌드 완료: `SoriSori Desktop_0.1.0_x64-setup.exe` (150MB, 2026-04-23 15:04)
 - 다음 우선 작업:
-  - `OPENAI_API_KEY` + `DEEPL_API_KEY` 설정 후 전체 스택 live 검증
-    1. `npm run dev:realtime` → 게이트웨이 시작
-    2. `npm run dev:pipeline` → 세그먼트 저장 서비스 시작
-    3. 데스크톱 앱 → 세션 시작 → 30초 캡처
-    4. `GET http://localhost:8788/sessions/mvp-session-001/summary` 로 번역 요약 확인
-    5. 웹 세션 화면에서 실시간 자막 확인
-    6. 웹 `/history`, `/session/[id]`, `/session?id=...` 경로 교차 확인
-  - 세그먼트 영구 저장 (PostgreSQL) — Phase 1 우선순위
-  - pipeline 재시작 후 기존 세그먼트 복원 전략
+  - desktop 앱 실제 기동 → WASAPI 오디오로 실음성 전사 검증
+  - Tauri sidecar vs 외부 Python 설치 배포 방식 결정
+  - silero-vad 도입 검토
+    1. `faster-whisper` 또는 `whisper.cpp` 중 하나를 스파이크
+    2. `Argos Translate` 또는 `LibreTranslate` 중 하나를 로컬 번역 경로로 연결
+    3. 기존 OpenAI/DeepL provider와 공존 가능한 로컬 provider 모드 추가
+  - 그 다음 전체 스택 live 검증과 PostgreSQL 우선순위 재정렬
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
+  - `.ops/ai-bridge/requests/2026-04-22-1935-from-codex-to-claude-step16-local-open-source-pivot.md`
   - `.ops/handoff-2026-04-20-1545-codex-to-claude-step6.md`
   - `.ops/handoff-2026-04-20-1738-codex-to-claude-step9.md`
+  - `.ops/handoff-2026-04-22-1935-codex-to-claude-step16-local-open-source.md`
   - `.ops/checkpoints/2026-04-20-1545-step6-handoff-to-claude.md`
   - `.ops/checkpoints/2026-04-20-1606-step6-persistent-worker.md`
   - `.ops/checkpoints/2026-04-20-1633-step7-realtime-uplink.md`
   - `.ops/checkpoints/2026-04-20-1727-step8-openai-transcription.md`
   - `.ops/checkpoints/2026-04-20-1738-step9-handoff-to-claude.md`
+  - `.ops/checkpoints/2026-04-22-1935-step16-local-open-source-kickoff.md`
 - 작업 규칙:
   - 시작 전 현재 작업을 여기에 갱신
   - 종료 전 체크포인트 또는 커밋 남기기

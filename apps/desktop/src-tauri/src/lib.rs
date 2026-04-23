@@ -9,7 +9,8 @@ use audio::worker::{
 use serde::Serialize;
 use std::sync::{mpsc::Receiver, Mutex};
 use std::thread::{self, JoinHandle};
-use tauri::{AppHandle, Emitter, State};
+use std::process::Child;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +30,34 @@ struct CaptureSession {
 
 #[derive(Debug, Default)]
 struct CaptureSessionStore(Mutex<Option<CaptureSession>>);
+
+struct SidecarStore {
+    local_ai: Mutex<Option<Child>>,
+    realtime: Mutex<Option<Child>>,
+    pipeline: Mutex<Option<Child>>,
+}
+
+impl Default for SidecarStore {
+    fn default() -> Self {
+        Self {
+            local_ai: Mutex::new(None),
+            realtime: Mutex::new(None),
+            pipeline: Mutex::new(None),
+        }
+    }
+}
+
+impl SidecarStore {
+    fn kill_all(&self) {
+        for guard in [&self.local_ai, &self.realtime, &self.pipeline] {
+            if let Ok(mut lock) = guard.lock() {
+                if let Some(mut child) = lock.take() {
+                    let _ = child.kill();
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -166,6 +195,19 @@ fn emit_audio_chunk_event(app: &AppHandle, payload: AudioChunkEvent) {
 pub fn run() {
     tauri::Builder::default()
         .manage(CaptureSessionStore::default())
+        .manage(SidecarStore::default())
+        .setup(|app| {
+            if let Err(e) = start_sidecars(app.handle()) {
+                eprintln!("[sorisori] sidecar startup warning: {e}");
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                let sidecars = window.app_handle().state::<SidecarStore>();
+                sidecars.kill_all();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             desktop_bootstrap_snapshot,
             start_capture_session,
@@ -173,4 +215,57 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sorisori desktop app");
+}
+
+fn start_sidecars(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    let sidecars = app.state::<SidecarStore>();
+    let resource_dir = app.path().resource_dir()?;
+
+    let triple = "x86_64-pc-windows-msvc";
+
+    let local_ai_exe = resource_dir
+        .join("sidecar-bin")
+        .join(format!("sorisori-local-ai-{triple}.exe"));
+
+    let realtime_exe = resource_dir
+        .join("sidecar-bin")
+        .join(format!("sorisori-realtime-{triple}.exe"));
+
+    let pipeline_exe = resource_dir
+        .join("sidecar-bin")
+        .join(format!("sorisori-pipeline-{triple}.exe"));
+
+    // local-ai (Python/faster-whisper)
+    {
+        let child = std::process::Command::new(&local_ai_exe)
+            .env("LOCAL_AI_HOST", "127.0.0.1")
+            .env("LOCAL_AI_PORT", "8789")
+            .spawn()
+            .map_err(|e| format!("Failed to start local-ai: {e} (path: {local_ai_exe:?})"))?;
+        *sidecars.local_ai.lock().unwrap() = Some(child);
+    }
+
+    // realtime gateway
+    {
+        let child = std::process::Command::new(&realtime_exe)
+            .env("REALTIME_HOST", "127.0.0.1")
+            .env("REALTIME_PORT", "8787")
+            .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
+            .spawn()
+            .map_err(|e| format!("Failed to start realtime: {e} (path: {realtime_exe:?})"))?;
+        *sidecars.realtime.lock().unwrap() = Some(child);
+    }
+
+    // pipeline
+    {
+        let child = std::process::Command::new(&pipeline_exe)
+            .env("PIPELINE_HOST", "127.0.0.1")
+            .env("PIPELINE_PORT", "8788")
+            .env("REALTIME_GATEWAY_WS_URL", "ws://127.0.0.1:8787/ws")
+            .spawn()
+            .map_err(|e| format!("Failed to start pipeline: {e} (path: {pipeline_exe:?})"))?;
+        *sidecars.pipeline.lock().unwrap() = Some(child);
+    }
+
+    Ok(())
 }
