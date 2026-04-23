@@ -250,12 +250,22 @@
     - 현재 세션에는 스크린샷 원본 파일이 저장소 안에 없어 상세 오류는 미확인
   - handoff 목표:
     - Claude가 패키지된 앱 기준으로 문제를 이어서 디버깅할 수 있도록 최신 구현/빌드/설치본 상태 정리
+- Step 26-C 착수 (2026-04-23) — Claude Code:
+  - sidecar stderr 캡처 추가: lib.rs에서 3개 sidecar stderr → `sidecar-log` Tauri 이벤트
+  - health 폴링 추가: main.js에서 앱 시작 시 http://127.0.0.1:8789/health 3초마다 확인
+  - whisper_ready=true 될 때까지 시작 버튼 비활성화 (이전엔 AI 로딩 전에 눌러버려 "전혀안됨")
+  - CORS 미들웨어 추가 (main.py): tauri://localhost → fetch /health 허용
+  - index.html에 "사이드카 상태/로그" 디버그 패널 추가
+  - PyInstaller 재빌드 + NSIS 재빌드 완료 (커밋 e36d704)
+  - 재테스트 결과: "AI 서비스를 시작하지 못했습니다" 오류 표시됨
+  - 원인 미확인 — 사이드카 로그 확인 필요 (고급 정보 탭)
+  - 다음 단계: 노트북에서 사이드카 로그 기반 디버깅 이어서 진행
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
   - 영어 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
   - 일본어 번역은 이제 direct `ja→ko`가 기본(`auto` 모드), bridge는 fallback
-  - 다만 최신 설치본은 사용자 기준 "동작 안 함" 상태라 packaged runtime 디버깅이 필요
+  - 설치본 기준 sidecar 기동 실패 — 원인 불명, 로그 확인 필요
   - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
