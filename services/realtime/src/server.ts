@@ -29,11 +29,19 @@ import type {
   RealtimeSessionStopMessage,
   RealtimeTranscriptionCompletedMessage,
   RealtimeTranscriptionDeltaMessage,
+  RealtimeTranscriptionFailedMessage,
   SessionLifecycleStatus,
   TranscriptSegment,
 } from "@sorisori/contracts";
 import { OpenAiRealtimeTranscriptionBridge } from "./openai-realtime-transcription.js";
+import { LocalTranscriptionBridge } from "./local-transcription-bridge.js";
 import { translateWithDeepL } from "./deepl-translation.js";
+import { translateWithLocalAi } from "./local-translation.js";
+
+interface TranscriptionBridge {
+  appendAudioChunk(pcm16Base64: string): boolean;
+  close(): void;
+}
 
 interface ClientConnection {
   connectionId: string;
@@ -48,6 +56,7 @@ interface SessionRecord {
   sourceType: RealtimeSessionStartMessage["sourceType"];
   sourceLabel: string;
   targetLanguage: "ko";
+  sourceLanguage: string | undefined;
   sourceFormat: RealtimeSessionStartMessage["sourceFormat"];
   targetFormat: RealtimeSessionStartMessage["targetFormat"];
   chunkDurationMs: number;
@@ -56,7 +65,7 @@ interface SessionRecord {
   totalAudioBytes: number;
   latestChunkIndex: number | null;
   lastMetrics: RealtimeCaptureMetricsMessage | null;
-  providerBridge: OpenAiRealtimeTranscriptionBridge | null;
+  providerBridge: TranscriptionBridge | null;
   providerModel: string | null;
   sessionStartedAtMs: number;
   itemFirstSeenAtMs: Map<string, number>;
@@ -79,6 +88,7 @@ interface StartRealtimeGatewayOptions {
   openAiLanguage?: string;
   openAiPrompt?: string;
   deeplApiKey?: string;
+  localAiUrl?: string;
 }
 
 function nowIso() {
@@ -177,6 +187,7 @@ export async function startRealtimeGatewayServer(
   const openAiLanguage = options.openAiLanguage ?? process.env.OPENAI_REALTIME_LANGUAGE;
   const openAiPrompt = options.openAiPrompt ?? process.env.OPENAI_REALTIME_TRANSCRIPTION_PROMPT;
   const deeplApiKey = options.deeplApiKey ?? process.env.DEEPL_API_KEY ?? "";
+  const localAiUrl = options.localAiUrl ?? process.env.LOCAL_AI_URL ?? "";
 
   const clients = new Map<string, ClientConnection>();
   const sessions = new Map<string, SessionRecord>();
@@ -226,6 +237,7 @@ export async function startRealtimeGatewayServer(
       sourceType: payload.sourceType,
       sourceLabel: payload.sourceLabel,
       targetLanguage: payload.targetLanguage,
+      sourceLanguage: payload.sourceLanguage,
       sourceFormat: payload.sourceFormat,
       targetFormat: payload.targetFormat,
       chunkDurationMs: payload.chunkDurationMs,
@@ -244,6 +256,7 @@ export async function startRealtimeGatewayServer(
     nextSession.status = "connecting";
     nextSession.sourceType = payload.sourceType;
     nextSession.sourceLabel = payload.sourceLabel;
+    nextSession.sourceLanguage = payload.sourceLanguage;
     nextSession.sourceFormat = payload.sourceFormat;
     nextSession.targetFormat = payload.targetFormat;
     nextSession.chunkDurationMs = payload.chunkDurationMs;
@@ -270,8 +283,13 @@ export async function startRealtimeGatewayServer(
     session.itemFirstSeenAtMs.delete(completed.itemId);
 
     let translatedText = "";
-    if (deeplApiKey && completed.transcript.trim()) {
-      translatedText = (await translateWithDeepL(completed.transcript, deeplApiKey)) ?? "";
+    const transcriptTrimmed = completed.transcript.trim();
+    if (transcriptTrimmed) {
+      if (localAiUrl) {
+        translatedText = (await translateWithLocalAi(completed.transcript, localAiUrl)) ?? "";
+      } else if (deeplApiKey) {
+        translatedText = (await translateWithDeepL(completed.transcript, deeplApiKey)) ?? "";
+      }
     }
 
     const segment: TranscriptSegment = {
@@ -294,8 +312,82 @@ export async function startRealtimeGatewayServer(
     broadcastToSession(session.sessionId, segmentPayload);
   }
 
-  async function ensureOpenAiBridge(session: SessionRecord) {
+  function makeBridgeEventHandler(session: SessionRecord) {
+    return (event: RealtimeProviderStateMessage | RealtimeTranscriptionDeltaMessage | RealtimeTranscriptionCompletedMessage | RealtimeTranscriptionFailedMessage) => {
+      session.updatedAt = nowIso();
+      switch (event.type) {
+        case "provider.state": {
+          const providerState = event as RealtimeProviderStateMessage;
+          if (providerState.status === "ready") {
+            session.status = "transcribing";
+          } else if (providerState.status === "error") {
+            session.status = "error";
+          } else if (providerState.status === "closed" && session.status !== "completed") {
+            session.status = "paused";
+          }
+
+          broadcastToSession(session.sessionId, providerState);
+          if (providerState.status === "error") {
+            broadcastToSession(
+              session.sessionId,
+              buildError(providerState.message, true, session.sessionId),
+            );
+          }
+          return;
+        }
+        case "transcription.delta": {
+          const delta = event as RealtimeTranscriptionDeltaMessage;
+          if (!session.itemFirstSeenAtMs.has(delta.itemId)) {
+            session.itemFirstSeenAtMs.set(delta.itemId, Date.now());
+          }
+          broadcastToSession(session.sessionId, delta);
+          return;
+        }
+        case "transcription.completed": {
+          const completed = event as RealtimeTranscriptionCompletedMessage;
+          session.status = "transcribing";
+          broadcastToSession(session.sessionId, completed);
+          void assembleAndBroadcastSegment(session, completed);
+          return;
+        }
+        case "transcription.failed":
+          session.status = "error";
+          broadcastToSession(session.sessionId, event);
+          return;
+        default:
+          return;
+      }
+    };
+  }
+
+  async function ensureTranscriptionBridge(session: SessionRecord) {
     if (session.providerBridge) {
+      return;
+    }
+
+    const onEvent = makeBridgeEventHandler(session);
+
+    if (localAiUrl) {
+      const bridgeLang = session.sourceLanguage ?? openAiLanguage;
+      const bridge = new LocalTranscriptionBridge({
+        sessionId: session.sessionId,
+        baseUrl: localAiUrl,
+        ...(bridgeLang ? { language: bridgeLang } : {}),
+        onEvent,
+      });
+      session.providerBridge = bridge;
+      try {
+        await bridge.connect();
+      } catch (error) {
+        session.providerBridge = null;
+        session.status = "error";
+        const message =
+          error instanceof Error ? error.message : "Failed to connect to local-ai service.";
+        broadcastToSession(
+          session.sessionId,
+          buildError(`local-ai connect failed: ${message}`, true, session.sessionId),
+        );
+      }
       return;
     }
 
@@ -304,7 +396,7 @@ export async function startRealtimeGatewayServer(
       broadcastToSession(
         session.sessionId,
         buildError(
-          "OPENAI_API_KEY is not configured, so realtime transcription uplink is disabled.",
+          "Neither LOCAL_AI_URL nor OPENAI_API_KEY is configured. Transcription is disabled.",
           false,
           session.sessionId,
         ),
@@ -319,51 +411,7 @@ export async function startRealtimeGatewayServer(
       ...(openAiBaseUrl ? { baseUrl: openAiBaseUrl } : {}),
       ...(openAiLanguage ? { language: openAiLanguage } : {}),
       ...(openAiPrompt ? { prompt: openAiPrompt } : {}),
-      onEvent: (event) => {
-        session.updatedAt = nowIso();
-        switch (event.type) {
-          case "provider.state": {
-            const providerState = event as RealtimeProviderStateMessage;
-            if (providerState.status === "ready") {
-              session.status = "transcribing";
-            } else if (providerState.status === "error") {
-              session.status = "error";
-            } else if (providerState.status === "closed" && session.status !== "completed") {
-              session.status = "paused";
-            }
-
-            broadcastToSession(session.sessionId, providerState);
-            if (providerState.status === "error") {
-              broadcastToSession(
-                session.sessionId,
-                buildError(providerState.message, true, session.sessionId),
-              );
-            }
-            return;
-          }
-          case "transcription.delta": {
-            const delta = event as RealtimeTranscriptionDeltaMessage;
-            if (!session.itemFirstSeenAtMs.has(delta.itemId)) {
-              session.itemFirstSeenAtMs.set(delta.itemId, Date.now());
-            }
-            broadcastToSession(session.sessionId, delta);
-            return;
-          }
-          case "transcription.completed": {
-            const completed = event as RealtimeTranscriptionCompletedMessage;
-            session.status = "transcribing";
-            broadcastToSession(session.sessionId, completed);
-            void assembleAndBroadcastSegment(session, completed);
-            return;
-          }
-          case "transcription.failed":
-            session.status = "error";
-            broadcastToSession(session.sessionId, event);
-            return;
-          default:
-            return;
-        }
-      },
+      onEvent,
     });
 
     session.providerBridge = bridge;
@@ -381,7 +429,7 @@ export async function startRealtimeGatewayServer(
     }
   }
 
-  function teardownOpenAiBridge(session: SessionRecord) {
+  function teardownTranscriptionBridge(session: SessionRecord) {
     if (!session.providerBridge) {
       return;
     }
@@ -409,7 +457,7 @@ export async function startRealtimeGatewayServer(
     session.connectedClientIds.delete(connectionId);
     if (session.connectedClientIds.size === 0 && session.status !== "completed") {
       session.status = "paused";
-      teardownOpenAiBridge(session);
+      teardownTranscriptionBridge(session);
     }
     session.updatedAt = nowIso();
     broadcastToSession(session.sessionId, buildSessionState(session));
@@ -463,7 +511,7 @@ export async function startRealtimeGatewayServer(
         session.connectedClientIds.add(connectionId);
         session.updatedAt = nowIso();
         broadcastToSession(session.sessionId, buildSessionState(session));
-        void ensureOpenAiBridge(session);
+        void ensureTranscriptionBridge(session);
         return;
       }
       case "audio.chunk.append": {
@@ -538,7 +586,7 @@ export async function startRealtimeGatewayServer(
 
         session.status = "completed";
         session.updatedAt = nowIso();
-        teardownOpenAiBridge(session);
+        teardownTranscriptionBridge(session);
         broadcastToSession(session.sessionId, buildSessionState(session));
         return;
       }

@@ -40,7 +40,15 @@
       <!-- 컨트롤 -->
       <footer class="control-bar">
         <div class="control-left">
-          <label class="session-label" for="session-id-input">세션 ID</label>
+          <label class="session-label" for="source-lang-select">언어</label>
+          <select id="source-lang-select" class="lang-select">
+            <option value="">자동 감지</option>
+            <option value="en" selected>영어</option>
+            <option value="ja">일본어</option>
+            <option value="zh">중국어</option>
+            <option value="ko">한국어</option>
+          </select>
+          <label class="session-label" for="session-id-input">세션</label>
           <input
             id="session-id-input"
             class="session-input"

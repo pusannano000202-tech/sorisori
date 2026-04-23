@@ -221,6 +221,25 @@ body {
   white-space: nowrap;
 }
 
+.lang-select {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.8);
+  color: var(--ink);
+  font-size: 0.88rem;
+  padding: 7px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+
+.lang-select:focus {
+  border-color: rgba(14,117,108,0.5);
+  box-shadow: 0 0 0 3px rgba(14,117,108,0.1);
+}
+
+.lang-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .session-input {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -229,7 +248,7 @@ body {
   font-size: 0.9rem;
   padding: 7px 12px;
   outline: none;
-  width: 180px;
+  width: 150px;
   transition: border-color 140ms, box-shadow 140ms;
 }
 

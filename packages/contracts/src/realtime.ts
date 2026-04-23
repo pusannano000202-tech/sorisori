@@ -19,6 +19,7 @@ export interface RealtimeSessionStartMessage {
   targetFormat: AudioStreamFormat;
   chunkDurationMs: number;
   targetLanguage: "ko";
+  sourceLanguage?: string; // e.g. "en", "ja", "zh" — undefined = auto-detect
   occurredAt: string;
 }
 
@@ -121,7 +122,7 @@ export type RealtimeProviderStateStatus =
 export interface RealtimeProviderStateMessage {
   type: "provider.state";
   sessionId: string;
-  provider: "openai-realtime-transcription";
+  provider: "openai-realtime-transcription" | "local-ai-transcription";
   status: RealtimeProviderStateStatus;
   model: string;
   message: string;

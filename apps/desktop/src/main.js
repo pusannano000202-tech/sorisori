@@ -8,6 +8,7 @@ const liveIndicator    = document.getElementById("live-indicator");
 const liveText         = document.getElementById("live-text");
 const sessionIdInput   = document.getElementById("session-id-input");
 const resetSessionBtn  = document.getElementById("reset-session-id-button");
+const sourceLangSelect = document.getElementById("source-lang-select");
 const startButton      = document.getElementById("start-button");
 const stopButton       = document.getElementById("stop-button");
 
@@ -80,12 +81,17 @@ function saveSessionId() {
 }
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
+function getSourceLang() {
+  return sourceLangSelect?.value || undefined;
+}
+
 function setButtons(running) {
   isSessionRunning = running;
   startButton.disabled = running;
   stopButton.disabled  = !running;
   if (sessionIdInput)  sessionIdInput.disabled  = running;
   if (resetSessionBtn) resetSessionBtn.disabled  = running;
+  if (sourceLangSelect) sourceLangSelect.disabled = running;
 }
 
 // ─── Subtitle display ────────────────────────────────────────────────────────
@@ -180,6 +186,7 @@ function sendSessionStartIfReady() {
     gatewaySessionStarted
   ) return;
 
+  const srcLang = getSourceLang();
   sendGateway(
     buildMsg("session.start", {
       sessionId: currentSessionId,
@@ -189,6 +196,7 @@ function sendSessionStartIfReady() {
       targetFormat: currentSessionConfig.targetFormat,
       chunkDurationMs: currentSessionConfig.chunkDurationMs,
       targetLanguage: "ko",
+      ...(srcLang ? { sourceLanguage: srcLang } : {}),
     })
   );
   gatewaySessionStarted = true;
