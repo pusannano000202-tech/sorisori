@@ -45,8 +45,8 @@
 
 ## 현재 다음 우선순위
 
-1. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
-2. sidecar 재빌드 검증 (NLLB hiddenimports 반영)
+1. packaged installer/runtime 디버깅
+2. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
 3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
 4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
 5. 모델 크기 선택 UI (desktop 설정 화면)
@@ -61,3 +61,4 @@
 - sidecar-bin/은 .gitignore에 추가됨 — git에 없으므로 clone 후 반드시 재빌드 필요.
 - 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer 교체"를 원칙으로 한다.
 - 일본어는 이제 direct 경로를 우선 사용하므로, 품질 검증과 패키징 안정화가 다음 핵심이다.
+- 최신 NSIS 설치파일은 다시 빌드되었지만, 사용자 보고상 "전혀 안됨" 상태라 설치본 기준 디버깅이 우선이다.

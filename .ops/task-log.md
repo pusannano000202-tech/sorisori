@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 26-A 완료 - direct ja→ko 첫 슬라이스 구현 및 실측 검증
+- 현재 단계: Phase 0 / Step 26-B 착수 - 최신 설치본 비정상 동작 handoff 준비
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -240,11 +240,22 @@
     - direct 결과: `今日は...` → `오늘 우리는 모델의 정확성뿐만 아니라 어떤 경우에 오류가 발생할 수 있는지 살펴볼 것입니다.`
     - bridge 결과: `오늘, 우리는 모델의 정확성뿐만 아니라 모든 장면에서 오류를 볼 수 없습니다.`
     - second sample에서도 direct가 의미 보존과 자연스러움 모두 우세
+- Step 26-B 착수 (2026-04-23):
+  - 최신 local-ai sidecar 재빌드 완료 (`PyInstaller`)
+  - 최신 NSIS 설치파일 재패키징 완료:
+    - `apps/desktop/src-tauri/target/release/bundle/nsis/SoriSori Desktop_0.1.0_x64-setup.exe`
+    - 빌드 시각: `2026-04-23 19:58:39`
+  - 사용자 피드백:
+    - 설치본 기준으로 "전혀 안됨"
+    - 현재 세션에는 스크린샷 원본 파일이 저장소 안에 없어 상세 오류는 미확인
+  - handoff 목표:
+    - Claude가 패키지된 앱 기준으로 문제를 이어서 디버깅할 수 있도록 최신 구현/빌드/설치본 상태 정리
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
   - 영어 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
   - 일본어 번역은 이제 direct `ja→ko`가 기본(`auto` 모드), bridge는 fallback
+  - 다만 최신 설치본은 사용자 기준 "동작 안 함" 상태라 packaged runtime 디버깅이 필요
   - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
