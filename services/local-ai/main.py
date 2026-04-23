@@ -12,6 +12,7 @@ from typing import Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -242,6 +243,12 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="sorisori-local-ai", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 
 # ---------------------------------------------------------------------------

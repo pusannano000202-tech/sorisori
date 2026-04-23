@@ -17,6 +17,7 @@ const snapshotOutput   = document.getElementById("snapshot-output");
 const sessionOutput    = document.getElementById("session-output");
 const metricsOutput    = document.getElementById("metrics-output");
 const gatewayOutput    = document.getElementById("gateway-output");
+const sidecarOutput    = document.getElementById("sidecar-output");
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const DEFAULT_GATEWAY_URL  = "ws://127.0.0.1:8787/ws";
@@ -51,10 +52,58 @@ let subtitles        = [];           // { ko, src, timeLabel }
 let liveItemId       = null;
 let liveDeltaMap     = {};           // itemId → accumulated delta text
 
+// sidecar state
+let sidecarLogs      = [];           // { sidecar, line }
+let sidecarHealthy   = false;
+
 // ─── Status helpers ─────────────────────────────────────────────────────────
 function setStatus(state, text) {
   statusDot.className = "status-dot " + state;
   statusText.textContent = text;
+}
+
+// ─── Sidecar helpers ─────────────────────────────────────────────────────────
+function updateSidecarOutput(healthData) {
+  const lines = sidecarLogs.map(e => `[${e.sidecar}] ${e.line}`).join("\n");
+  if (healthData) {
+    const hStr = JSON.stringify(healthData, null, 2);
+    sidecarOutput.textContent = `=== Health ===\n${hStr}\n\n=== Logs ===\n${lines || "(없음)"}`;
+  } else {
+    sidecarOutput.textContent = lines || "(로그 없음)";
+  }
+}
+
+async function waitForLocalAi() {
+  if (!window.__TAURI__) return;
+  setStatus("idle", "AI 서비스 시작 중... (처음 실행 시 수 분 소요)");
+  startButton.disabled = true;
+
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch("http://127.0.0.1:8789/health", { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        updateSidecarOutput(data);
+        if (data.whisper_ready) {
+          sidecarHealthy = true;
+          setStatus("ready", "AI 준비됨 — 시작 버튼을 누르세요");
+          startButton.disabled = false;
+          return;
+        }
+        setStatus("idle", `AI 모델 로딩 중... (${attempt * 3}초 경과)`);
+      }
+    } catch (_) {
+      if (attempt > 0) {
+        setStatus("idle", `AI 시작 대기 중... (${attempt * 3}초 경과)`);
+      }
+    }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  setStatus("error", "AI 서비스를 시작하지 못했습니다 — 고급 정보 탭의 사이드카 로그를 확인하세요");
 }
 
 // ─── Session ID helpers ──────────────────────────────────────────────────────
@@ -326,6 +375,11 @@ async function ensureListeners() {
   listenersRegistered = true;
   const { listen } = window.__TAURI__.event;
 
+  await listen("sidecar-log", (ev) => {
+    sidecarLogs = [...sidecarLogs, ev.payload].slice(-100);
+    updateSidecarOutput();
+  });
+
   await listen("capture-session", (ev) => {
     const p = ev.payload;
     sessionEventLog = [p, ...sessionEventLog].slice(0, 8);
@@ -452,7 +506,13 @@ resetSessionBtn?.addEventListener("click", () => {
 });
 
 // ─── Init ────────────────────────────────────────────────────────────────────
-initSessionId();
-setButtons(false);
-setStatus("idle", "초기화 중...");
-void loadSnapshot();
+async function init() {
+  initSessionId();
+  setButtons(false);
+  setStatus("idle", "초기화 중...");
+  await ensureListeners();
+  void loadSnapshot();
+  void waitForLocalAi();
+}
+
+void init();

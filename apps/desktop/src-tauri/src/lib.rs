@@ -7,9 +7,10 @@ use audio::worker::{
     WorkerEvent, AUDIO_CHUNK_EVENT, CAPTURE_METRICS_EVENT, CAPTURE_SESSION_EVENT,
 };
 use serde::Serialize;
+use std::io::{BufRead, BufReader};
+use std::process::{Child, Stdio};
 use std::sync::{mpsc::Receiver, Mutex};
 use std::thread::{self, JoinHandle};
-use std::process::Child;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,6 +58,13 @@ impl SidecarStore {
             }
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SidecarLogEvent {
+    sidecar: String,
+    line: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -217,6 +225,26 @@ pub fn run() {
         .expect("error while running Sorisori desktop app");
 }
 
+fn spawn_stderr_reader(app: AppHandle, sidecar: &'static str, stderr: std::process::ChildStderr) {
+    thread::Builder::new()
+        .name(format!("sidecar-log-{sidecar}"))
+        .spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => {
+                        let _ = app.emit(
+                            "sidecar-log",
+                            SidecarLogEvent { sidecar: sidecar.to_string(), line: l },
+                        );
+                    }
+                    Err(_) => break,
+                }
+            }
+        })
+        .ok();
+}
+
 fn start_sidecars(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let sidecars = app.state::<SidecarStore>();
     let resource_dir = app.path().resource_dir()?;
@@ -237,33 +265,48 @@ fn start_sidecars(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     // local-ai (Python/faster-whisper)
     {
-        let child = std::process::Command::new(&local_ai_exe)
+        let mut child = std::process::Command::new(&local_ai_exe)
             .env("LOCAL_AI_HOST", "127.0.0.1")
             .env("LOCAL_AI_PORT", "8789")
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to start local-ai: {e} (path: {local_ai_exe:?})"))?;
+        if let Some(stderr) = child.stderr.take() {
+            spawn_stderr_reader(app.clone(), "local-ai", stderr);
+        }
         *sidecars.local_ai.lock().unwrap() = Some(child);
     }
 
     // realtime gateway
     {
-        let child = std::process::Command::new(&realtime_exe)
+        let mut child = std::process::Command::new(&realtime_exe)
             .env("REALTIME_HOST", "127.0.0.1")
             .env("REALTIME_PORT", "8787")
             .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to start realtime: {e} (path: {realtime_exe:?})"))?;
+        if let Some(stderr) = child.stderr.take() {
+            spawn_stderr_reader(app.clone(), "realtime", stderr);
+        }
         *sidecars.realtime.lock().unwrap() = Some(child);
     }
 
     // pipeline
     {
-        let child = std::process::Command::new(&pipeline_exe)
+        let mut child = std::process::Command::new(&pipeline_exe)
             .env("PIPELINE_HOST", "127.0.0.1")
             .env("PIPELINE_PORT", "8788")
             .env("REALTIME_GATEWAY_WS_URL", "ws://127.0.0.1:8787/ws")
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to start pipeline: {e} (path: {pipeline_exe:?})"))?;
+        if let Some(stderr) = child.stderr.take() {
+            spawn_stderr_reader(app.clone(), "pipeline", stderr);
+        }
         *sidecars.pipeline.lock().unwrap() = Some(child);
     }
 
