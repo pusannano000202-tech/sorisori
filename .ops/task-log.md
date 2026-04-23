@@ -264,6 +264,23 @@
   - `CREATE_NO_WINDOW` 플래그 추가: sidecar spawn / taskkill 시 콘솔 창 안 뜨도록
   - WASAPI `0x80010106` (RPC_E_CHANGED_MODE) 수정: probe를 전용 스레드에서 실행 (Tauri 명령 스레드가 STA로 초기화되어 있어 wasapi MTA 요구와 충돌하던 문제 해결)
   - 다음 단계: 노트북으로 이관 후 재빌드/재테스트
+- Step 26-D 정리 (2026-04-23) — Codex:
+  - Claude의 미커밋 수정(`lib.rs`, `capture.rs`)을 검증 후 커밋 `cea8fce`로 보존
+  - 검증 통과:
+    - `npm run check -w @sorisori/desktop`
+    - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  - 노트북 이관용 종합 handoff 작성:
+    - `.ops/handoff-2026-04-23-codex-to-laptop-github-resume.md`
+  - fresh clone에서 필요한 sidecar 재빌드 순서 재검증:
+    - local-ai: `model-download.py` + `pyinstaller`
+    - realtime: `esbuild` + `pkg`
+    - pipeline: `esbuild` + `pkg`
+  - 현재 기준 다음 작업 우선순위:
+    - GitHub remote 연결 후 push
+    - 노트북 clone
+    - sidecar 3개 재빌드
+    - `npm run dev:desktop`
+    - 설치본 재검증
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
