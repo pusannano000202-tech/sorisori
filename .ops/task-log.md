@@ -144,14 +144,30 @@
     - 디버그 정보는 접을 수 있는 `<details>` 섹션으로 분리
   - `apps/desktop/src-tauri/src/lib.rs`: 사이드카 시작 실패 시 앱 크래시 대신 로그만 출력
   - NSIS 인스톨러 재빌드 완료: `SoriSori Desktop_0.1.0_x64-setup.exe` (150MB, 2026-04-23 15:04)
+- Step 20 완료 (2026-04-23):
+  - VAD 임계값 수정: `SILENCE_RMS_THRESHOLD` 500→80, 버퍼 플러시 조건 완화
+  - `services/realtime/src/entry.ts` 신규 — pkg 번들용 CJS 진입점
+  - realtime sidecar exe 재빌드 (esbuild bundle → pkg node18-win-x64)
+  - NSIS 인스톨러 재빌드 (2026-04-23 15:23)
+- Step 21 완료 (2026-04-23):
+  - `packages/contracts/src/realtime.ts`: `RealtimeSessionStartMessage`에 `sourceLanguage?: string` 추가
+  - `services/realtime/src/server.ts`: `SessionRecord`에 `sourceLanguage` 필드, bridge 생성 시 전달
+  - `apps/desktop/src/index.html`: 언어 드롭다운 추가 (자동 감지/영어/일본어/중국어/한국어, 기본값 영어)
+  - `apps/desktop/src/styles.css`: `.lang-select` 스타일 추가
+  - `apps/desktop/src/main.js`: `getSourceLang()` 추가, `session.start`에 `sourceLanguage` 포함
+  - realtime + local-ai sidecar exe 재빌드, NSIS 인스톨러 재빌드 (2026-04-23 15:41)
+- Step 22 완료 (2026-04-23):
+  - `services/realtime/src/local-transcription-bridge.ts`: 배치 창 확대 (MAX 200청크=4초, MIN 30청크, SILENCE 20청크)
+  - `services/local-ai/main.py`: `vad_filter=True` + Silero VAD(onnxruntime 기반) 활성화, 언어 지정 시 probe 패스 스킵
+  - `services/local-ai/local-ai.spec`: onnxruntime hiddenimports 추가
+  - realtime + local-ai sidecar exe 재빌드, NSIS 인스톨러 재빌드 (2026-04-23 15:51)
+  - 실기기 테스트 결과: 영어 인식 품질 향상, 음악+음성 혼합 처리 개선 확인
 - 다음 우선 작업:
-  - desktop 앱 실제 기동 → WASAPI 오디오로 실음성 전사 검증
-  - Tauri sidecar vs 외부 Python 설치 배포 방식 결정
-  - silero-vad 도입 검토
-    1. `faster-whisper` 또는 `whisper.cpp` 중 하나를 스파이크
-    2. `Argos Translate` 또는 `LibreTranslate` 중 하나를 로컬 번역 경로로 연결
-    3. 기존 OpenAI/DeepL provider와 공존 가능한 로컬 provider 모드 추가
-  - 그 다음 전체 스택 live 검증과 PostgreSQL 우선순위 재정렬
+  - 배치 창 2초(100청크)로 줄여 지연 개선 (현재 4초로 체감 느림)
+  - 번역 품질 개선: Argos Translate → NLLB-200 distilled 600M (무료/로컬, 품질 대폭 향상)
+  - Whisper 반복 환각 필터: 직전 세그먼트와 유사도 90% 이상이면 드롭
+  - beam_size 5→2 (속도 향상, 품질 영향 미미)
+  - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택 유지
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
