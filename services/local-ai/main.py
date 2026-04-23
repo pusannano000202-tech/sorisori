@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 import unicodedata
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -134,16 +135,101 @@ def _is_cjk(text: str) -> bool:
     return False
 
 
+def _contains_hangul(text: str) -> bool:
+    for ch in text:
+        name = unicodedata.name(ch, "")
+        if "HANGUL" in name:
+            return True
+    return False
+
+
+def _normalize_text_for_display(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = normalized.replace("\r", " ").replace("\n", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    # Remove repeated punctuation and decorative artifacts that Whisper sometimes emits.
+    normalized = re.sub(r"([!?.,])\1{1,}", r"\1", normalized)
+    normalized = re.sub(r"(?:\s*[-–—]\s*){2,}", " — ", normalized)
+    normalized = re.sub(r"\s+([,.!?;:])", r"\1", normalized)
+    normalized = re.sub(r"([(\[{])\s+", r"\1", normalized)
+    normalized = re.sub(r"\s+([)\]}])", r"\1", normalized)
+    return normalized.strip()
+
+
+def _split_translation_chunks(text: str, max_chars: int = 280) -> list[str]:
+    normalized = _normalize_text_for_display(text)
+    if not normalized:
+        return []
+
+    # Prefer sentence-like boundaries first.
+    sentence_candidates = re.split(r"(?<=[.!?])\s+|(?<=[。！？])\s*", normalized)
+    sentences = [candidate.strip() for candidate in sentence_candidates if candidate.strip()]
+
+    if not sentences:
+        return [normalized]
+
+    chunks: list[str] = []
+    current = ""
+
+    for sentence in sentences:
+        if len(sentence) > max_chars:
+            words = sentence.split()
+            oversized_current = ""
+            for word in words:
+                tentative = f"{oversized_current} {word}".strip()
+                if oversized_current and len(tentative) > max_chars:
+                    chunks.append(oversized_current)
+                    oversized_current = word
+                else:
+                    oversized_current = tentative
+            if oversized_current:
+                if current:
+                    chunks.append(current)
+                    current = ""
+                chunks.append(oversized_current)
+            continue
+
+        tentative = f"{current} {sentence}".strip()
+        if current and len(tentative) > max_chars:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = tentative
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+def _translate_in_chunks(text: str, src_lang: str) -> Optional[str]:
+    chunks = _split_translation_chunks(text)
+    if not chunks:
+        return ""
+
+    translated_chunks: list[str] = []
+    for chunk in chunks:
+        translated = _marian_translate(chunk, src_lang)
+        if translated is None:
+            return None
+        translated_chunks.append(translated.strip())
+
+    merged = " ".join(part for part in translated_chunks if part)
+    return _normalize_text_for_display(merged)
+
+
 def _is_short_fragment(text: str, lang: Optional[str]) -> bool:
     """True if the text is too short to be meaningful."""
-    if not text:
+    normalized = _normalize_text_for_display(text)
+    if not normalized:
         return True
-    if lang in CJK_LANGS or _is_cjk(text):
+    if lang in CJK_LANGS or _is_cjk(normalized):
         # CJK: filter if fewer than 6 characters (excludes punctuation)
-        char_count = sum(1 for c in text if not unicodedata.category(c).startswith("P"))
+        char_count = sum(1 for c in normalized if not unicodedata.category(c).startswith("P"))
         return char_count < 6
     # Space-separated: filter if fewer than 3 words
-    return len(text.split()) < 3
+    return len(normalized.split()) < 3
 
 
 def _similarity_ratio(a: str, b: str) -> float:
@@ -225,6 +311,7 @@ def transcribe(req: TranscribeRequest):
     )
 
     transcript = "".join(seg.text for seg in segments).strip()
+    transcript = _normalize_text_for_display(transcript)
 
     # If Whisper was supposed to translate (non-English) but still output CJK chars,
     # the translation failed — drop the transcript to avoid garbage output.
@@ -265,24 +352,31 @@ def _marian_translate(text: str, src_lang: str) -> Optional[str]:
 
 @app.post("/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
+    normalized_text = _normalize_text_for_display(req.text)
+    if not normalized_text:
+        return TranslateResponse(translatedText="")
+
+    if req.target_lang == "ko" and (req.source_lang == "ko" or _contains_hangul(normalized_text)):
+        return TranslateResponse(translatedText=normalized_text)
+
     if not _mt_ready:
         raise HTTPException(503, "Translation model not ready.")
 
     # If text still contains CJK characters and we have no direct model, drop it
     # (means Whisper's translate task failed — better to return nothing than garbage)
-    if _is_cjk(req.text) and req.source_lang not in _mt_models:
+    if _is_cjk(normalized_text) and req.source_lang not in _mt_models:
         raise HTTPException(422, f"CJK text with no {req.source_lang}→ko model available.")
 
     src = req.source_lang
 
     # Try direct model first
-    result = _marian_translate(req.text, src)
+    result = _translate_in_chunks(normalized_text, src)
     if result is not None:
         return TranslateResponse(translatedText=result)
 
     # Fallback: non-English source with English-looking text → en→ko
-    if src != "en" and not _is_cjk(req.text):
-        result = _marian_translate(req.text, "en")
+    if src != "en" and not _is_cjk(normalized_text):
+        result = _translate_in_chunks(normalized_text, "en")
         if result is not None:
             return TranslateResponse(translatedText=result)
 

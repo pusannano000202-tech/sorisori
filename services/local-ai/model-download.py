@@ -1,4 +1,4 @@
-"""Download faster-whisper model and Argos en→ko language pack."""
+"""Download faster-whisper + MarianMT translation models for local-ai."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ MODELS_DIR = os.environ.get(
     "MODELS_DIR",
     os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "sorisori", "models"),
 )
+MARIAN_MODELS = {
+    "en": "Helsinki-NLP/opus-mt-tc-big-en-ko",
+}
 
 
 def download_whisper():
@@ -25,40 +28,23 @@ ARGOS_PACKS = [
 ]
 
 
-def download_argos():
-    import argostranslate.package  # type: ignore[import-untyped]
-    import argostranslate.translate  # type: ignore[import-untyped]
+def download_marian():
+    from transformers import MarianMTModel, MarianTokenizer  # type: ignore[import-untyped]
 
-    installed = argostranslate.translate.get_installed_languages()
-    installed_pairs = {
-        (lang.code, t.to_lang.code)
-        for lang in installed
-        for t in lang.translations_to
-    }
+    cache_dir = os.path.join(MODELS_DIR, "marian")
+    os.makedirs(cache_dir, exist_ok=True)
 
-    needs_update = any(pair not in installed_pairs for pair in ARGOS_PACKS)
-    if needs_update:
-        argostranslate.package.update_package_index()
-
-    available = argostranslate.package.get_available_packages()
-
-    for from_code, to_code in ARGOS_PACKS:
-        if (from_code, to_code) in installed_pairs:
-            print(f"[model-download] Argos {from_code}→{to_code} already installed.")
-            continue
-        pack = next((p for p in available if p.from_code == from_code and p.to_code == to_code), None)
-        if pack is None:
-            print(f"[model-download] WARNING: Argos {from_code}→{to_code} pack not found.")
-            continue
-        print(f"[model-download] Downloading Argos {from_code}→{to_code} ...")
-        argostranslate.package.install_from_path(pack.download())
-        print(f"[model-download] Argos {from_code}→{to_code} installed.")
+    for lang_code, model_name in MARIAN_MODELS.items():
+        print(f"[model-download] Downloading MarianMT {lang_code}→ko model: {model_name}")
+        MarianTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
+        MarianMTModel.from_pretrained(model_name, cache_dir=cache_dir)
+        print(f"[model-download] MarianMT {lang_code}→ko ready.")
 
 
 if __name__ == "__main__":
     try:
         download_whisper()
-        download_argos()
+        download_marian()
         print("[model-download] All models ready.")
     except Exception as exc:
         print(f"[model-download] ERROR: {exc}", file=sys.stderr)

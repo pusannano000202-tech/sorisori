@@ -1,0 +1,35 @@
+# Checkpoint
+
+- Date: 2026-04-23 17:35
+- Branch: `main`
+- Topic: Step 24 complete - local translation quality cleanup and chunked Marian translation
+- Files changed:
+  - `services/local-ai/main.py`
+  - `services/local-ai/model-download.py`
+  - `services/local-ai/test_text_processing.py`
+  - `.ops/task-log.md`
+  - `.ops/checkpoints/2026-04-23-1735-step24-local-translation-quality.md`
+- Decisions made:
+  - MarianMT 품질 개선은 모델 교체보다 먼저 입력 문장 정규화/문장 분할로 접근한다.
+  - 한국어 원문은 번역 모델 준비 여부와 관계없이 passthrough 처리한다.
+  - 현재 로컬 스택 기준 모델 다운로드 스크립트는 MarianMT 기준으로 맞춘다.
+- Commands run:
+  - `Get-Content services/local-ai/main.py`
+  - `Get-Content services/realtime/src/server.ts`
+  - `Get-Content services/realtime/src/local-translation.ts`
+  - `Get-Content services/realtime/src/local-transcription-bridge.ts`
+  - `Get-Content .ops/handoff-2026-04-23-claude-to-codex-step23-laptop-setup.md`
+  - `Get-Content services/local-ai/model-download.py`
+  - `Get-Content services/local-ai/requirements.txt`
+  - `rg -n "translateWithLocalAi|source_lang|translatedText|Marian|Helsinki|fragment|hallucination|CJK" ...`
+  - `services/local-ai/.venv/Scripts/python.exe services/local-ai/test_text_processing.py`
+  - `services/local-ai/.venv/Scripts/python.exe -m py_compile services/local-ai/main.py services/local-ai/model-download.py services/local-ai/test_text_processing.py`
+- Validation result:
+  - local-ai unit tests passed
+  - Python syntax compile passed
+- Remaining work:
+  - 실제 앱 실행 환경에서 긴 영어 문장/강의형 문장 번역 품질 재확인
+  - 일본어 직접 번역 경로 추가 검토
+  - GitHub remote 연결 후 노트북 이전 검증
+- Resume prompt:
+  - `Run the local-ai desktop flow with long English lecture audio and confirm the new chunked Marian translation reads more naturally, then continue with laptop migration or Japanese translation improvements.`

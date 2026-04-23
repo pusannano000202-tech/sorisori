@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 18 완료 - 로컬 STT 파이프라인 end-to-end 검증
+- 현재 단계: Phase 0 / Step 24 완료 - 로컬 번역 전처리/분할 품질 개선
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -162,12 +162,31 @@
   - `services/local-ai/local-ai.spec`: onnxruntime hiddenimports 추가
   - realtime + local-ai sidecar exe 재빌드, NSIS 인스톨러 재빌드 (2026-04-23 15:51)
   - 실기기 테스트 결과: 영어 인식 품질 향상, 음악+음성 혼합 처리 개선 확인
-- 다음 우선 작업:
-  - 배치 창 2초(100청크)로 줄여 지연 개선 (현재 4초로 체감 느림)
-  - 번역 품질 개선: Argos Translate → NLLB-200 distilled 600M (무료/로컬, 품질 대폭 향상)
-  - Whisper 반복 환각 필터: 직전 세그먼트와 유사도 90% 이상이면 드롭
-  - beam_size 5→2 (속도 향상, 품질 영향 미미)
-  - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택 유지
+- Step 23 완료 (2026-04-23):
+  - 배치 창 2초로 감소: MAX_SPEECH_CHUNKS 200→100, MIN 30→15, SILENCE 20→10
+  - Argos Translate → MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko` 교체 (품질 향상)
+  - 환각 필터 추가: trigram 유사도 ≥90% 세그먼트 드롭
+  - beam_size 5 유지 (2로 낮췄다가 "lecture→left" 오인식 발생해 복구)
+  - 3단어 미만 짧은 fragment 필터 추가 (server.ts에서 empty transcript → 세그먼트 브로드캐스트 생략)
+  - 언어 인식 필터 개선: CJK 언어는 character count 기준 (< 6자 드롭)
+  - 일본어 처리: Whisper task=translate 후 CJK 문자 남아있으면 드롭, 영어 변환 성공 시 en→ko
+  - local-translation.ts: sourceLang 파라미터 추가
+  - server.ts: translateWithLocalAi에 source_lang 전달
+  - .gitignore: sidecar-bin/, runtime-logs/, PyInstaller build/ 추가
+  - 전체 변경사항 커밋 (306bafb)
+  - 개인 노트북 이전 준비 완료 (GitHub remote 미설정, 사용자가 레포 생성 후 push 예정)
+- Step 24 완료 (2026-04-23):
+  - `services/local-ai/main.py`에 텍스트 정규화 추가 (`_normalize_text_for_display`)
+  - 번역 전 문장 단위/길이 제한 분할 추가 (`_split_translation_chunks`, `_translate_in_chunks`)
+  - 한국어 입력이 들어오면 번역 모델 준비 여부와 관계없이 그대로 통과시키는 passthrough 추가
+  - 번역 결과 병합 후 공백/구두점 정규화 적용
+  - `services/local-ai/model-download.py`를 현재 MarianMT 기반 스택에 맞게 갱신
+  - `services/local-ai/test_text_processing.py` 신규 작성
+  - local-ai Python 단위 테스트 3건 통과
+- 현재 상태 (2026-04-23):
+  - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
+  - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
+  - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
   - `.ops/ai-bridge/requests/2026-04-20-1738-from-codex-to-claude-step9-pipeline-translation.md`
