@@ -98,9 +98,9 @@ fn get_sidecar_status(
         if let Some(ref rd) = resource_dir {
             (
                 rd.to_string_lossy().to_string(),
-                rd.join("sidecar-bin").join(format!("sorisori-local-ai-{triple}.exe")).exists(),
-                rd.join("sidecar-bin").join(format!("sorisori-realtime-{triple}.exe")).exists(),
-                rd.join("sidecar-bin").join(format!("sorisori-pipeline-{triple}.exe")).exists(),
+                resolve_sidecar(rd, "sorisori-local-ai", triple).exists(),
+                resolve_sidecar(rd, "sorisori-realtime", triple).exists(),
+                resolve_sidecar(rd, "sorisori-pipeline", triple).exists(),
             )
         } else {
             ("(unknown)".to_string(), false, false, false)
@@ -293,6 +293,19 @@ fn spawn_stderr_reader(app: AppHandle, sidecar: &'static str, stderr: std::proce
         .ok();
 }
 
+/// Resolve sidecar exe path for both dev and NSIS-installed contexts.
+/// - Dev:       resource_dir/sidecar-bin/name-triple.exe
+/// - NSIS:      resource_dir/name.exe  (Tauri strips subdir + triple on install)
+fn resolve_sidecar(resource_dir: &std::path::Path, name: &str, triple: &str) -> std::path::PathBuf {
+    let dev = resource_dir
+        .join("sidecar-bin")
+        .join(format!("{name}-{triple}.exe"));
+    if dev.exists() {
+        return dev;
+    }
+    resource_dir.join(format!("{name}.exe"))
+}
+
 fn start_sidecars(
     app: &AppHandle,
     log: &SidecarStartupLog,
@@ -302,20 +315,14 @@ fn start_sidecars(
 
     let triple = "x86_64-pc-windows-msvc";
 
-    let local_ai_exe = resource_dir
-        .join("sidecar-bin")
-        .join(format!("sorisori-local-ai-{triple}.exe"));
-    let realtime_exe = resource_dir
-        .join("sidecar-bin")
-        .join(format!("sorisori-realtime-{triple}.exe"));
-    let pipeline_exe = resource_dir
-        .join("sidecar-bin")
-        .join(format!("sorisori-pipeline-{triple}.exe"));
+    let local_ai_exe = resolve_sidecar(&resource_dir, "sorisori-local-ai", triple);
+    let realtime_exe = resolve_sidecar(&resource_dir, "sorisori-realtime", triple);
+    let pipeline_exe = resolve_sidecar(&resource_dir, "sorisori-pipeline", triple);
 
     log.push(format!("resource_dir = {resource_dir:?}"));
-    log.push(format!("local_ai exists = {}", local_ai_exe.exists()));
-    log.push(format!("realtime  exists = {}", realtime_exe.exists()));
-    log.push(format!("pipeline  exists = {}", pipeline_exe.exists()));
+    log.push(format!("local_ai = {local_ai_exe:?} exists={}", local_ai_exe.exists()));
+    log.push(format!("realtime  = {realtime_exe:?} exists={}", realtime_exe.exists()));
+    log.push(format!("pipeline  = {pipeline_exe:?} exists={}", pipeline_exe.exists()));
 
     // local-ai (Python/faster-whisper)
     match std::process::Command::new(&local_ai_exe)
