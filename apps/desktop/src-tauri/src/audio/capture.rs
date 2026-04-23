@@ -87,7 +87,17 @@ pub struct CaptureBufferSnapshot {
 pub fn bootstrap_capture_backend() -> CaptureBootstrap {
     #[cfg(windows)]
     {
-        return probe_windows_loopback_backend().unwrap_or_else(|error| CaptureBootstrap {
+        // WASAPI requires MTA, but Tauri's command thread is typically STA, which
+        // causes `initialize_mta()` to fail with RPC_E_CHANGED_MODE (0x80010106).
+        // Run the probe on a dedicated thread that has no prior COM init.
+        let result = std::thread::Builder::new()
+            .name("wasapi-probe".to_string())
+            .spawn(probe_windows_loopback_backend)
+            .ok()
+            .and_then(|h| h.join().ok())
+            .unwrap_or_else(|| Err("wasapi-probe thread failed to start".to_string()));
+
+        return result.unwrap_or_else(|error| CaptureBootstrap {
             snapshot: CaptureBackendSnapshot {
                 backend: "wasapi-loopback".to_string(),
                 operating_mode: "shared-loopback".to_string(),

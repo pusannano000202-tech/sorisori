@@ -257,9 +257,13 @@
   - CORS 미들웨어 추가 (main.py): tauri://localhost → fetch /health 허용
   - index.html에 "사이드카 상태/로그" 디버그 패널 추가
   - PyInstaller 재빌드 + NSIS 재빌드 완료 (커밋 e36d704)
-  - 재테스트 결과: "AI 서비스를 시작하지 못했습니다" 오류 표시됨
-  - 원인 미확인 — 사이드카 로그 확인 필요 (고급 정보 탭)
-  - 다음 단계: 노트북에서 사이드카 로그 기반 디버깅 이어서 진행
+  - 재테스트: `exe_exists: all false` 발견 → NSIS 설치 경로가 `sidecar-bin/name-triple.exe`가 아닌 `name.exe`임 확인
+  - `resolve_sidecar()` 추가: dev 경로 우선, 없으면 설치 경로로 fallback (커밋 61ac5a2)
+- Step 26-D 착수 (2026-04-23) — Claude Code:
+  - 좀비 사이드카 포트 점유 방지: `start_sidecars` 시작 시 `taskkill /F /IM sorisori-*.exe` 선행 실행
+  - `CREATE_NO_WINDOW` 플래그 추가: sidecar spawn / taskkill 시 콘솔 창 안 뜨도록
+  - WASAPI `0x80010106` (RPC_E_CHANGED_MODE) 수정: probe를 전용 스레드에서 실행 (Tauri 명령 스레드가 STA로 초기화되어 있어 wasapi MTA 요구와 충돌하던 문제 해결)
+  - 다음 단계: 노트북으로 이관 후 재빌드/재테스트
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)

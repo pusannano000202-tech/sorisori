@@ -8,7 +8,24 @@ use audio::worker::{
 };
 use serde::Serialize;
 use std::io::{BufRead, BufReader};
-use std::process::{Child, Stdio};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+use std::process::{Child, Command, Stdio};
+
+#[cfg(target_os = "windows")]
+const WIN_CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn sidecar_command(exe: &std::path::Path) -> Command {
+    let cmd = Command::new(exe);
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = cmd;
+        cmd.creation_flags(WIN_CREATE_NO_WINDOW);
+        return cmd;
+    }
+    #[cfg(not(target_os = "windows"))]
+    cmd
+}
 use std::sync::{mpsc::Receiver, Mutex};
 use std::thread::{self, JoinHandle};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -306,10 +323,38 @@ fn resolve_sidecar(resource_dir: &std::path::Path, name: &str, triple: &str) -> 
     resource_dir.join(format!("{name}.exe"))
 }
 
+/// Kill any leftover sidecar processes from a previous (crashed) run so we don't hit
+/// EADDRINUSE on ports 8787/8788/8789. Errors are ignored — best-effort cleanup.
+#[cfg(target_os = "windows")]
+fn kill_stale_sidecars(log: &SidecarStartupLog) {
+    for name in [
+        "sorisori-local-ai.exe",
+        "sorisori-realtime.exe",
+        "sorisori-pipeline.exe",
+    ] {
+        let out = Command::new("taskkill")
+            .args(["/F", "/IM", name, "/T"])
+            .creation_flags(WIN_CREATE_NO_WINDOW)
+            .output();
+        match out {
+            Ok(o) if o.status.success() => {
+                log.push(format!("taskkill {name}: killed stale process"));
+            }
+            Ok(_) => { /* nothing to kill — normal case */ }
+            Err(e) => log.push(format!("taskkill {name} error: {e}")),
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn kill_stale_sidecars(_log: &SidecarStartupLog) {}
+
 fn start_sidecars(
     app: &AppHandle,
     log: &SidecarStartupLog,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    kill_stale_sidecars(log);
+
     let sidecars = app.state::<SidecarStore>();
     let resource_dir = app.path().resource_dir()?;
 
@@ -325,7 +370,7 @@ fn start_sidecars(
     log.push(format!("pipeline  = {pipeline_exe:?} exists={}", pipeline_exe.exists()));
 
     // local-ai (Python/faster-whisper)
-    match std::process::Command::new(&local_ai_exe)
+    match sidecar_command(&local_ai_exe)
         .env("LOCAL_AI_HOST", "127.0.0.1")
         .env("LOCAL_AI_PORT", "8789")
         .stdout(Stdio::null())
@@ -347,7 +392,7 @@ fn start_sidecars(
     }
 
     // realtime gateway
-    match std::process::Command::new(&realtime_exe)
+    match sidecar_command(&realtime_exe)
         .env("REALTIME_HOST", "127.0.0.1")
         .env("REALTIME_PORT", "8787")
         .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
@@ -370,7 +415,7 @@ fn start_sidecars(
     }
 
     // pipeline
-    match std::process::Command::new(&pipeline_exe)
+    match sidecar_command(&pipeline_exe)
         .env("PIPELINE_HOST", "127.0.0.1")
         .env("PIPELINE_PORT", "8788")
         .env("REALTIME_GATEWAY_WS_URL", "ws://127.0.0.1:8787/ws")
