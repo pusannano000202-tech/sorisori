@@ -1,7 +1,7 @@
 # Shared Context
 
 - 프로젝트: 컴퓨터/노트북 등에서 재생되는 외국어 오디오를 실시간 한국어 자막으로 보여주는 웹 + 데스크톱 앱
-- 현재 날짜 기준 문맥: 2026-04-22
+- 현재 날짜 기준 문맥: 2026-04-23
 - 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 
 ## 지금까지 완료
@@ -25,22 +25,30 @@
 - `/session/[id]` 세션 상세 페이지에서 요약/세그먼트 아카이브 조회 구현
 - desktop/web/pipeline 세션 ID 정렬 및 live 검증 준비 완료
 
-## 현재 기술 기준
+## 현재 기술 기준 (2026-04-23 기준 최신)
 
-- Windows MVP 오디오 캡처: `wasapi`
-- Windows MVP 캡처 전략: `WASAPI loopback`
-- 포맷 변환: `rubato + dasp`
-- 실시간 전사: `LOCAL_AI_URL` 있으면 faster-whisper (services/local-ai), 없으면 OpenAI realtime transcription fallback
-- 번역: `LOCAL_AI_URL` 있으면 argostranslate (services/local-ai), 없으면 DeepL fallback
-- 로컬 AI 서비스: `services/local-ai/main.py` (FastAPI, port 8788 기본)
+- Windows MVP 오디오 캡처: `wasapi` (WASAPI loopback)
+- 포맷 변환: `rubato + dasp` (PCM16 / mono / 24kHz)
+- 실시간 전사: faster-whisper (`services/local-ai`, port 8789) — beam_size=5, Silero VAD 활성
+- 번역: Argos Translate 우선 + MarianMT 보조 fallback
+  - 영어: `Argos en→ko` direct가 기본 경로
+  - 일본어: 현재 `ja→en→ko` bridge가 기본 경로
+  - MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko`는 en→ko fallback으로만 유지
+  - 장문 영어에서는 MarianMT가 깨진 출력을 보여 Argos-first로 복구됨
+- 사이드카 3개 (Tauri 자동 기동):
+  - `sorisori-local-ai` (PyInstaller, port 8789) — faster-whisper STT + Argos/Marian 번역
+  - `sorisori-realtime` (pkg node18, port 8787) — WebSocket gateway
+  - `sorisori-pipeline` (pkg node18, port 8788) — segment REST store
+- 배포: NSIS 인스톨러 (~150MB), `apps/desktop/src-tauri/target/release/bundle/nsis/`
+- GitHub: 아직 remote 미설정 — 사용자가 레포 생성 후 push 필요
 
 ## 현재 다음 우선순위
 
-1. `services/local-ai` 실제 기동 및 faster-whisper 동작 검증 (Python 환경 구성)
-2. Tauri sidecar vs 외부 Python 설치 배포 방식 결정
-3. 모델 크기 선택 UI (desktop 설정 화면)
-4. silero-vad 도입 검토 (에너지 VAD 한계 보완)
-5. PostgreSQL 영구 저장 우선순위 재검토
+1. 일본어 직행 번역 전략 확정 (`ja→ko` direct, 현재 bridge 대체)
+2. Claude/Codex handoff 기준 문서 최신화
+3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
+4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
+5. 모델 크기 선택 UI (desktop 설정 화면)
 
 ## 지금 주의할 점
 
@@ -48,7 +56,7 @@
 - Rust 툴체인 핀 `1.86.0`은 유지한다.
 - 같은 파일군을 Codex와 Claude가 동시에 최종 수정하지 않는다.
 - 확정 설계 변경은 먼저 문서에 남긴다.
-- desktop `audio/worker.rs`와 OpenAI bridge의 현재 동작은 유지한 채, Step 9는 pipeline/translation 중심으로 확장한다.
-- 웹 viewer는 오디오 없이 `session.join`만 보내는 구독자 역할을 유지한다.
-- pipeline REST API를 쓰는 기록/상세 화면은 서비스 비가동 시 graceful fallback을 유지한다.
-- 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer와 배포 전략 전환"을 기본 원칙으로 본다.
+- 유료 API(OpenAI, DeepL) 사용 금지 — 완전 로컬/무료 스택 유지.
+- sidecar-bin/은 .gitignore에 추가됨 — git에 없으므로 clone 후 반드시 재빌드 필요.
+- 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer 교체"를 원칙으로 한다.
+- 일본어는 현재 bridge 품질이 부족하므로 `ja→ko` direct 경로를 우선 검토한다.

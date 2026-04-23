@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 25 완료 - Argos 우선 번역 복구 및 장문 품질 재검증
+- 현재 단계: Phase 0 / Step 26 착수 - 일본어 직행 번역 전략 문서화 및 Claude handoff 준비
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -201,10 +201,23 @@
     - 이전 `완전 깨짐` 수준에서 `의미 전달은 가능한 거친 번역` 수준으로 개선
     - 영어 장문은 대체로 요지 전달 가능, 문장 자연스러움은 추가 보정 여지 있음
     - 일본어 direct text는 `ja→en→ko` 경로로 동작하지만 요약/축약 경향이 강함
+- Step 26 착수 (2026-04-23):
+  - 문제 정의: 현재 일본어 경로 `ja→en→ko`는 일본어/한국어의 유사한 어순과 문법 이점을 버리고 의미 축약을 유발한다.
+  - 로컬 Argos 패키지 인덱스 실측:
+    - 사용 가능: `en→ko`, `ja→en`
+    - 미확인/부재: `ja→ko` direct 패키지
+  - 로컬 direct 후보 스파이크:
+    - 캐시되어 있던 `facebook/nllb-200-distilled-600M`을 `jpn_Jpan→kor_Hang` direct로 시험
+    - 단일 샘플 기준 Argos bridge보다 더 자연스럽고 의미 보존이 좋은 결과 확인
+  - 다음 문서 작업 범위 확정:
+    - `docs/DECISIONS/0004-...` 일본어 직행 번역 전략 문서
+    - Claude 요청서 / handoff / checkpoint 작성
+    - shared-context 최신화
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
   - local-ai 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
+  - 일본어는 아직 bridge 경로가 기본이므로 direct ja→ko 전략 확정이 다음 핵심 작업
   - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
