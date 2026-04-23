@@ -512,7 +512,20 @@ async function init() {
   setStatus("idle", "초기화 중...");
   await ensureListeners();
   void loadSnapshot();
+  void loadSidecarStatus();
   void waitForLocalAi();
+}
+
+async function loadSidecarStatus() {
+  if (!window.__TAURI__?.core?.invoke) return;
+  try {
+    const status = await window.__TAURI__.core.invoke("get_sidecar_status");
+    if (sidecarOutput) {
+      sidecarOutput.textContent = JSON.stringify(status, null, 2);
+    }
+  } catch (e) {
+    if (sidecarOutput) sidecarOutput.textContent = "get_sidecar_status error: " + e;
+  }
 }
 
 void init();

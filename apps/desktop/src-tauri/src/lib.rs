@@ -38,6 +38,17 @@ struct SidecarStore {
     pipeline: Mutex<Option<Child>>,
 }
 
+#[derive(Debug, Default)]
+struct SidecarStartupLog(Mutex<Vec<String>>);
+
+impl SidecarStartupLog {
+    fn push(&self, msg: impl Into<String>) {
+        if let Ok(mut v) = self.0.lock() {
+            v.push(msg.into());
+        }
+    }
+}
+
 impl Default for SidecarStore {
     fn default() -> Self {
         Self {
@@ -73,6 +84,39 @@ struct CaptureSessionCommandResponse {
     status: String,
     message: String,
     config: Option<CaptureWorkerConfig>,
+}
+
+#[tauri::command]
+fn get_sidecar_status(
+    app: AppHandle,
+    log: State<'_, SidecarStartupLog>,
+) -> serde_json::Value {
+    let triple = "x86_64-pc-windows-msvc";
+    let resource_dir = app.path().resource_dir().ok();
+
+    let (rd_str, local_ai_exists, realtime_exists, pipeline_exists) =
+        if let Some(ref rd) = resource_dir {
+            (
+                rd.to_string_lossy().to_string(),
+                rd.join("sidecar-bin").join(format!("sorisori-local-ai-{triple}.exe")).exists(),
+                rd.join("sidecar-bin").join(format!("sorisori-realtime-{triple}.exe")).exists(),
+                rd.join("sidecar-bin").join(format!("sorisori-pipeline-{triple}.exe")).exists(),
+            )
+        } else {
+            ("(unknown)".to_string(), false, false, false)
+        };
+
+    let logs = log.0.lock().map(|v| v.clone()).unwrap_or_default();
+
+    serde_json::json!({
+        "resource_dir": rd_str,
+        "exe_exists": {
+            "local_ai": local_ai_exists,
+            "realtime": realtime_exists,
+            "pipeline": pipeline_exists,
+        },
+        "startup_log": logs,
+    })
 }
 
 #[tauri::command]
@@ -204,8 +248,11 @@ pub fn run() {
     tauri::Builder::default()
         .manage(CaptureSessionStore::default())
         .manage(SidecarStore::default())
+        .manage(SidecarStartupLog::default())
         .setup(|app| {
-            if let Err(e) = start_sidecars(app.handle()) {
+            let startup_log = app.state::<SidecarStartupLog>();
+            if let Err(e) = start_sidecars(app.handle(), &startup_log) {
+                startup_log.push(format!("start_sidecars ERROR: {e}"));
                 eprintln!("[sorisori] sidecar startup warning: {e}");
             }
             Ok(())
@@ -219,7 +266,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             desktop_bootstrap_snapshot,
             start_capture_session,
-            stop_capture_session
+            stop_capture_session,
+            get_sidecar_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running Sorisori desktop app");
@@ -245,7 +293,10 @@ fn spawn_stderr_reader(app: AppHandle, sidecar: &'static str, stderr: std::proce
         .ok();
 }
 
-fn start_sidecars(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+fn start_sidecars(
+    app: &AppHandle,
+    log: &SidecarStartupLog,
+) -> Result<(), Box<dyn std::error::Error>> {
     let sidecars = app.state::<SidecarStore>();
     let resource_dir = app.path().resource_dir()?;
 
@@ -254,60 +305,84 @@ fn start_sidecars(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let local_ai_exe = resource_dir
         .join("sidecar-bin")
         .join(format!("sorisori-local-ai-{triple}.exe"));
-
     let realtime_exe = resource_dir
         .join("sidecar-bin")
         .join(format!("sorisori-realtime-{triple}.exe"));
-
     let pipeline_exe = resource_dir
         .join("sidecar-bin")
         .join(format!("sorisori-pipeline-{triple}.exe"));
 
+    log.push(format!("resource_dir = {resource_dir:?}"));
+    log.push(format!("local_ai exists = {}", local_ai_exe.exists()));
+    log.push(format!("realtime  exists = {}", realtime_exe.exists()));
+    log.push(format!("pipeline  exists = {}", pipeline_exe.exists()));
+
     // local-ai (Python/faster-whisper)
+    match std::process::Command::new(&local_ai_exe)
+        .env("LOCAL_AI_HOST", "127.0.0.1")
+        .env("LOCAL_AI_PORT", "8789")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
     {
-        let mut child = std::process::Command::new(&local_ai_exe)
-            .env("LOCAL_AI_HOST", "127.0.0.1")
-            .env("LOCAL_AI_PORT", "8789")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to start local-ai: {e} (path: {local_ai_exe:?})"))?;
-        if let Some(stderr) = child.stderr.take() {
-            spawn_stderr_reader(app.clone(), "local-ai", stderr);
+        Ok(mut child) => {
+            log.push("local-ai spawned OK".to_string());
+            if let Some(stderr) = child.stderr.take() {
+                spawn_stderr_reader(app.clone(), "local-ai", stderr);
+            }
+            *sidecars.local_ai.lock().unwrap() = Some(child);
         }
-        *sidecars.local_ai.lock().unwrap() = Some(child);
+        Err(e) => {
+            let msg = format!("local-ai spawn FAILED: {e}");
+            log.push(msg.clone());
+            return Err(msg.into());
+        }
     }
 
     // realtime gateway
+    match std::process::Command::new(&realtime_exe)
+        .env("REALTIME_HOST", "127.0.0.1")
+        .env("REALTIME_PORT", "8787")
+        .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
     {
-        let mut child = std::process::Command::new(&realtime_exe)
-            .env("REALTIME_HOST", "127.0.0.1")
-            .env("REALTIME_PORT", "8787")
-            .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to start realtime: {e} (path: {realtime_exe:?})"))?;
-        if let Some(stderr) = child.stderr.take() {
-            spawn_stderr_reader(app.clone(), "realtime", stderr);
+        Ok(mut child) => {
+            log.push("realtime spawned OK".to_string());
+            if let Some(stderr) = child.stderr.take() {
+                spawn_stderr_reader(app.clone(), "realtime", stderr);
+            }
+            *sidecars.realtime.lock().unwrap() = Some(child);
         }
-        *sidecars.realtime.lock().unwrap() = Some(child);
+        Err(e) => {
+            let msg = format!("realtime spawn FAILED: {e}");
+            log.push(msg.clone());
+            return Err(msg.into());
+        }
     }
 
     // pipeline
+    match std::process::Command::new(&pipeline_exe)
+        .env("PIPELINE_HOST", "127.0.0.1")
+        .env("PIPELINE_PORT", "8788")
+        .env("REALTIME_GATEWAY_WS_URL", "ws://127.0.0.1:8787/ws")
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
     {
-        let mut child = std::process::Command::new(&pipeline_exe)
-            .env("PIPELINE_HOST", "127.0.0.1")
-            .env("PIPELINE_PORT", "8788")
-            .env("REALTIME_GATEWAY_WS_URL", "ws://127.0.0.1:8787/ws")
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to start pipeline: {e} (path: {pipeline_exe:?})"))?;
-        if let Some(stderr) = child.stderr.take() {
-            spawn_stderr_reader(app.clone(), "pipeline", stderr);
+        Ok(mut child) => {
+            log.push("pipeline spawned OK".to_string());
+            if let Some(stderr) = child.stderr.take() {
+                spawn_stderr_reader(app.clone(), "pipeline", stderr);
+            }
+            *sidecars.pipeline.lock().unwrap() = Some(child);
         }
-        *sidecars.pipeline.lock().unwrap() = Some(child);
+        Err(e) => {
+            let msg = format!("pipeline spawn FAILED: {e}");
+            log.push(msg.clone());
+            return Err(msg.into());
+        }
     }
 
     Ok(())
