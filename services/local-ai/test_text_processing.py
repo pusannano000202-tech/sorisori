@@ -45,7 +45,43 @@ class TextProcessingTests(unittest.TestCase):
 
         self.assertEqual(response.translatedText, "안녕하세요 여러분.")
 
-    def test_translate_route_falls_back_to_english_path_for_non_english_transcript(self):
+    def test_translate_route_prefers_direct_ja_ko_for_cjk_text(self):
+        request = local_ai_main.TranslateRequest(
+            text="今日は、モデルの精度だけではなく、どの場面で誤りやすいのかを見ていきます。",
+            source_lang="ja",
+        )
+
+        with mock.patch.object(local_ai_main, "JA_TRANSLATION_MODE", "auto"), \
+             mock.patch.object(local_ai_main, "_ja_direct_ready", True), \
+             mock.patch.object(local_ai_main, "_translate_ja_direct_in_chunks", return_value="오늘은 모델의 정확도뿐 아니라 어떤 장면에서 실수가 잦은지도 봅니다."), \
+             mock.patch.object(
+                 local_ai_main,
+                 "_translate_with_argos",
+                 side_effect=AssertionError("Argos bridge should not run when direct ja->ko succeeds."),
+             ):
+            response = local_ai_main.translate(request)
+
+        self.assertEqual(response.translatedText, "오늘은 모델의 정확도뿐 아니라 어떤 장면에서 실수가 잦은지도 봅니다.")
+
+    def test_translate_route_falls_back_to_bridge_when_direct_ja_ko_fails(self):
+        request = local_ai_main.TranslateRequest(
+            text="今日は、モデルの精度だけではなく、どの場面で誤りやすいのかを見ていきます。",
+            source_lang="ja",
+        )
+
+        with mock.patch.object(local_ai_main, "JA_TRANSLATION_MODE", "auto"), \
+             mock.patch.object(local_ai_main, "_ja_direct_ready", True), \
+             mock.patch.object(local_ai_main, "_translate_ja_direct_in_chunks", return_value=None), \
+             mock.patch.object(
+                 local_ai_main,
+                 "_translate_with_argos",
+                 return_value="오늘은 모델의 정확도뿐 아니라 오류가 잦은 장면도 살펴봅니다.",
+             ):
+            response = local_ai_main.translate(request)
+
+        self.assertEqual(response.translatedText, "오늘은 모델의 정확도뿐 아니라 오류가 잦은 장면도 살펴봅니다.")
+
+    def test_translate_route_falls_back_to_english_path_for_english_like_japanese_transcript(self):
         request = local_ai_main.TranslateRequest(
             text="Today we will examine operational stability.",
             source_lang="ja",
@@ -59,7 +95,10 @@ class TextProcessingTests(unittest.TestCase):
                 return "오늘은 운영 안정성을 살펴봅니다."
             return None
 
-        with mock.patch.object(local_ai_main, "_argos_ready", True), \
+        with mock.patch.object(local_ai_main, "JA_TRANSLATION_MODE", "auto"), \
+             mock.patch.object(local_ai_main, "_ja_direct_ready", True), \
+             mock.patch.object(local_ai_main, "_translate_ja_direct_in_chunks", side_effect=AssertionError("Direct ja->ko should not run for English text.")), \
+             mock.patch.object(local_ai_main, "_argos_ready", True), \
              mock.patch.object(local_ai_main, "_mt_ready", False), \
              mock.patch.object(local_ai_main, "_translate_with_argos", side_effect=fake_argos):
             response = local_ai_main.translate(request)

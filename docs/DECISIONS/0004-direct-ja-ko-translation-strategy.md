@@ -1,7 +1,7 @@
 # Decision 0004 - Direct `ja->ko` Translation Strategy
 
 - Date: 2026-04-23
-- Status: Proposed
+- Status: In Progress
 - Owner: Codex
 
 ## Context
@@ -52,6 +52,22 @@
 2. 현재 bridge 경로는 즉시 삭제하지 않고 fallback으로 유지한다.
 3. direct 경로는 feature flag 또는 env flag 뒤에서 먼저 검증한다.
 4. 영어 경로(`en->ko`)는 당장 건드리지 않는다.
+
+## Implementation Status
+
+Step 26-A first slice landed on `2026-04-23`.
+
+- `services/local-ai/main.py`
+  - direct `ja->ko` route added
+  - env routing added: `LOCAL_AI_JA_TRANSLATION_MODE=auto|bridge|direct`
+  - cached local NLLB snapshot auto-discovery added for dev/runtime stability
+- `services/local-ai/model-download.py`
+  - direct Japanese model download path added
+- `services/local-ai/local-ai.spec`
+  - NLLB/M2M100 hiddenimports added
+- runtime validation:
+  - `GET /health` now reports `translation_engines.ja_direct=true`
+  - direct Japanese sample produced better fidelity than the old bridge path
 
 ## Recommended Step Plan
 

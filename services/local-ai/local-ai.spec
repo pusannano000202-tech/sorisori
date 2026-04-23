@@ -44,6 +44,11 @@ a = Analysis(
         'transformers.models.marian',
         'transformers.models.marian.modeling_marian',
         'transformers.models.marian.tokenization_marian',
+        'transformers.models.m2m_100',
+        'transformers.models.m2m_100.modeling_m2m_100',
+        'transformers.models.m2m_100.tokenization_m2m_100',
+        'transformers.models.nllb',
+        'transformers.models.nllb.tokenization_nllb',
         'sentencepiece',
         'sacremoses',
         # numpy

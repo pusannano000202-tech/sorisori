@@ -6,6 +6,8 @@ import os
 import sys
 
 MODEL_SIZE = os.environ.get("WHISPER_MODEL", "base")
+JA_DIRECT_MODEL = os.environ.get("LOCAL_AI_JA_DIRECT_MODEL", "facebook/nllb-200-distilled-600M")
+JA_TRANSLATION_MODE = os.environ.get("LOCAL_AI_JA_TRANSLATION_MODE", "auto").strip().lower() or "auto"
 MODELS_DIR = os.environ.get(
     "MODELS_DIR",
     os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "sorisori", "models"),
@@ -70,10 +72,27 @@ def download_marian():
         print(f"[model-download] MarianMT {lang_code}→ko ready.")
 
 
+def download_ja_direct_model():
+    if JA_TRANSLATION_MODE == "bridge":
+        print("[model-download] Skipping direct ja->ko model because LOCAL_AI_JA_TRANSLATION_MODE=bridge")
+        return
+
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer  # type: ignore[import-untyped]
+
+    cache_dir = os.path.join(MODELS_DIR, "nllb")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    print(f"[model-download] Downloading direct ja->ko model: {JA_DIRECT_MODEL}")
+    AutoTokenizer.from_pretrained(JA_DIRECT_MODEL, cache_dir=cache_dir, use_fast=False)
+    AutoModelForSeq2SeqLM.from_pretrained(JA_DIRECT_MODEL, cache_dir=cache_dir)
+    print("[model-download] Direct ja->ko model ready.")
+
+
 if __name__ == "__main__":
     try:
         download_whisper()
         download_argos()
+        download_ja_direct_model()
         download_marian()
         print("[model-download] All models ready.")
     except Exception as exc:

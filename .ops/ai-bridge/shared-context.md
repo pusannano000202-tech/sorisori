@@ -32,11 +32,12 @@
 - 실시간 전사: faster-whisper (`services/local-ai`, port 8789) — beam_size=5, Silero VAD 활성
 - 번역: Argos Translate 우선 + MarianMT 보조 fallback
   - 영어: `Argos en→ko` direct가 기본 경로
-  - 일본어: 현재 `ja→en→ko` bridge가 기본 경로
+  - 일본어: `NLLB direct ja→ko`가 기본 경로 (`LOCAL_AI_JA_TRANSLATION_MODE=auto`)
+  - direct 실패 시 `ja→en→ko` bridge fallback
   - MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko`는 en→ko fallback으로만 유지
   - 장문 영어에서는 MarianMT가 깨진 출력을 보여 Argos-first로 복구됨
 - 사이드카 3개 (Tauri 자동 기동):
-  - `sorisori-local-ai` (PyInstaller, port 8789) — faster-whisper STT + Argos/Marian 번역
+  - `sorisori-local-ai` (PyInstaller, port 8789) — faster-whisper STT + NLLB/Argos/Marian 번역
   - `sorisori-realtime` (pkg node18, port 8787) — WebSocket gateway
   - `sorisori-pipeline` (pkg node18, port 8788) — segment REST store
 - 배포: NSIS 인스톨러 (~150MB), `apps/desktop/src-tauri/target/release/bundle/nsis/`
@@ -44,8 +45,8 @@
 
 ## 현재 다음 우선순위
 
-1. 일본어 직행 번역 전략 확정 (`ja→ko` direct, 현재 bridge 대체)
-2. Claude/Codex handoff 기준 문서 최신화
+1. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
+2. sidecar 재빌드 검증 (NLLB hiddenimports 반영)
 3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
 4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
 5. 모델 크기 선택 UI (desktop 설정 화면)
@@ -59,4 +60,4 @@
 - 유료 API(OpenAI, DeepL) 사용 금지 — 완전 로컬/무료 스택 유지.
 - sidecar-bin/은 .gitignore에 추가됨 — git에 없으므로 clone 후 반드시 재빌드 필요.
 - 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer 교체"를 원칙으로 한다.
-- 일본어는 현재 bridge 품질이 부족하므로 `ja→ko` direct 경로를 우선 검토한다.
+- 일본어는 이제 direct 경로를 우선 사용하므로, 품질 검증과 패키징 안정화가 다음 핵심이다.

@@ -26,11 +26,19 @@ MODEL_SIZE = os.environ.get("WHISPER_MODEL", "base")
 DEVICE = os.environ.get("WHISPER_DEVICE", "auto")
 COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 MODELS_DIR = os.environ.get("MODELS_DIR", os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "sorisori", "models"))
+LOCAL_SOURCE_DIR = os.path.dirname(__file__)
 
 SAMPLE_RATE = 24_000
 
 # MarianMT model names
 MODEL_EN_KO = "Helsinki-NLP/opus-mt-tc-big-en-ko"
+JA_DIRECT_MODEL = os.environ.get("LOCAL_AI_JA_DIRECT_MODEL", "facebook/nllb-200-distilled-600M")
+JA_TRANSLATION_MODE = os.environ.get("LOCAL_AI_JA_TRANSLATION_MODE", "auto").strip().lower() or "auto"
+if JA_TRANSLATION_MODE not in {"auto", "bridge", "direct"}:
+    log.warning("Invalid LOCAL_AI_JA_TRANSLATION_MODE=%r, falling back to 'auto'", JA_TRANSLATION_MODE)
+    JA_TRANSLATION_MODE = "auto"
+JA_SOURCE_LANG_CODE = os.environ.get("LOCAL_AI_JA_SOURCE_LANG_CODE", "jpn_Jpan")
+KO_TARGET_LANG_CODE = os.environ.get("LOCAL_AI_KO_TARGET_LANG_CODE", "kor_Hang")
 ARGOS_PACKS = [
     ("en", "ko"),
     ("ja", "en"),
@@ -48,6 +56,10 @@ _whisper_model = None
 _argos_languages: dict[str, object] = {}
 _argos_translations: dict[tuple[str, str], object] = {}
 _argos_ready = False
+
+_ja_direct_tokenizer = None
+_ja_direct_model = None
+_ja_direct_ready = False
 
 _mt_tokenizers: dict[str, object] = {}
 _mt_models: dict[str, object] = {}
@@ -117,9 +129,107 @@ def _load_argos():
         log.warning("Argos load failed: %s", exc)
 
 
+def _existing_model_roots(*subdirs: str) -> list[str]:
+    candidates = [
+        os.path.join(MODELS_DIR, *subdirs),
+        MODELS_DIR,
+        os.path.join(LOCAL_SOURCE_DIR, "models", *subdirs),
+        os.path.join(LOCAL_SOURCE_DIR, "models"),
+    ]
+    seen: set[str] = set()
+    roots: list[str] = []
+    for candidate in candidates:
+        normalized = os.path.abspath(candidate)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if os.path.isdir(normalized):
+            roots.append(normalized)
+    return roots
+
+
+def _find_hf_snapshot(model_name: str, *subdirs: str, required_files: tuple[str, ...] = ()) -> Optional[str]:
+    repo_dir_name = f"models--{model_name.replace('/', '--')}"
+    for root in _existing_model_roots(*subdirs):
+        snapshots_dir = os.path.join(root, repo_dir_name, "snapshots")
+        if not os.path.isdir(snapshots_dir):
+            continue
+
+        snapshots = [
+            os.path.join(snapshots_dir, entry)
+            for entry in os.listdir(snapshots_dir)
+            if os.path.isdir(os.path.join(snapshots_dir, entry))
+        ]
+        valid_snapshots = []
+        for snapshot in snapshots:
+            if required_files and not all(os.path.exists(os.path.join(snapshot, name)) for name in required_files):
+                continue
+            valid_snapshots.append(snapshot)
+
+        if valid_snapshots:
+            return max(valid_snapshots, key=os.path.getmtime)
+        if snapshots and not required_files:
+            return max(snapshots, key=os.path.getmtime)
+
+    return None
+
+
+def _load_ja_direct_model():
+    global _ja_direct_tokenizer, _ja_direct_model, _ja_direct_ready
+
+    _ja_direct_tokenizer = None
+    _ja_direct_model = None
+    _ja_direct_ready = False
+
+    if JA_TRANSLATION_MODE == "bridge":
+        log.info("Japanese direct translation disabled by mode=bridge")
+        return
+
+    try:
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer  # type: ignore[import-untyped]
+
+        cache_dir = os.path.join(MODELS_DIR, "nllb")
+        local_only = JA_TRANSLATION_MODE != "direct"
+        required_snapshot_files = ("config.json", "tokenizer_config.json")
+        model_source = _find_hf_snapshot(
+            JA_DIRECT_MODEL,
+            "nllb",
+            required_files=required_snapshot_files,
+        ) or _find_hf_snapshot(
+            JA_DIRECT_MODEL,
+            required_files=required_snapshot_files,
+        )
+        if model_source is None:
+            model_source = JA_DIRECT_MODEL
+        log.info(
+            "Loading Japanese direct model=%s source=%s mode=%s local_only=%s",
+            JA_DIRECT_MODEL,
+            model_source,
+            JA_TRANSLATION_MODE,
+            local_only,
+        )
+        # `use_fast=False` avoids tokenizer initialization failures seen in local Windows tests.
+        _ja_direct_tokenizer = AutoTokenizer.from_pretrained(
+            model_source,
+            cache_dir=cache_dir,
+            use_fast=False,
+            local_files_only=local_only,
+        )
+        _ja_direct_model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_source,
+            cache_dir=cache_dir,
+            local_files_only=local_only,
+        )
+        _ja_direct_ready = True
+        log.info("Japanese direct model loaded.")
+    except Exception as exc:
+        log.warning("Japanese direct model load failed: %s", exc)
+
+
 def _load_translation():
     global _mt_ready
     _load_argos()
+    _load_ja_direct_model()
     ok_en = _load_mt_model("en", MODEL_EN_KO)
     _mt_ready = ok_en
 
@@ -257,6 +367,74 @@ def _translate_in_chunks(text: str, src_lang: str) -> Optional[str]:
     return _normalize_text_for_display(merged)
 
 
+def _get_lang_token_id(tokenizer, lang_code: str) -> Optional[int]:
+    lang_map = getattr(tokenizer, "lang_code_to_id", None)
+    if isinstance(lang_map, dict) and lang_code in lang_map:
+        return lang_map[lang_code]
+
+    get_lang_id = getattr(tokenizer, "get_lang_id", None)
+    if callable(get_lang_id):
+        try:
+            return get_lang_id(lang_code)
+        except Exception:
+            pass
+
+    try:
+        token_id = tokenizer.convert_tokens_to_ids(lang_code)
+    except Exception:
+        return None
+    if isinstance(token_id, int) and token_id >= 0:
+        return token_id
+    return None
+
+
+def _ja_direct_translate_once(text: str) -> Optional[str]:
+    if _ja_direct_tokenizer is None or _ja_direct_model is None:
+        return None
+
+    target_token_id = _get_lang_token_id(_ja_direct_tokenizer, KO_TARGET_LANG_CODE)
+    if target_token_id is None:
+        log.warning("Japanese direct model missing target lang id for %s", KO_TARGET_LANG_CODE)
+        return None
+
+    try:
+        _ja_direct_tokenizer.src_lang = JA_SOURCE_LANG_CODE
+        inputs = _ja_direct_tokenizer(
+            [text],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=512,
+        )
+        translated = _ja_direct_model.generate(
+            **inputs,
+            forced_bos_token_id=target_token_id,
+            num_beams=4,
+            max_length=512,
+        )
+        result = _ja_direct_tokenizer.batch_decode(translated, skip_special_tokens=True)
+        return _normalize_text_for_display(result[0]) if result else None
+    except Exception as exc:
+        log.warning("Japanese direct translate error: %s", exc)
+        return None
+
+
+def _translate_ja_direct_in_chunks(text: str) -> Optional[str]:
+    chunks = _split_translation_chunks(text)
+    if not chunks:
+        return ""
+
+    translated_chunks: list[str] = []
+    for chunk in chunks:
+        translated = _ja_direct_translate_once(chunk)
+        if translated is None:
+            return None
+        translated_chunks.append(translated)
+
+    merged = " ".join(part for part in translated_chunks if part)
+    return _normalize_text_for_display(merged)
+
+
 def _get_argos_translation(src_lang: str, dst_lang: str):
     src = _argos_languages.get(src_lang)
     dst = _argos_languages.get(dst_lang)
@@ -359,13 +537,20 @@ def health():
         "service": "sorisori-local-ai",
         "whisper_model": MODEL_SIZE,
         "whisper_ready": _whisper_model is not None,
-        "translation_ready": _argos_ready or _mt_ready,
+        "translation_ready": _argos_ready or _mt_ready or _ja_direct_ready,
         "translation_engines": {
             "argos": _argos_ready,
+            "ja_direct": _ja_direct_ready,
             "marian": _mt_ready,
+        },
+        "ja_translation": {
+            "mode": JA_TRANSLATION_MODE,
+            "direct_model": JA_DIRECT_MODEL,
+            "direct_ready": _ja_direct_ready,
         },
         "translation_langs": {
             "argos": sorted(_argos_languages.keys()),
+            "ja_direct": ["ja", "ko"] if _ja_direct_ready else [],
             "marian": sorted(_mt_models.keys()),
         },
     })
@@ -459,10 +644,25 @@ def translate(req: TranslateRequest):
     if req.target_lang == "ko" and (req.source_lang == "ko" or _contains_hangul(normalized_text)):
         return TranslateResponse(translatedText=normalized_text)
 
-    if not (_argos_ready or _mt_ready):
+    if not (_argos_ready or _mt_ready or _ja_direct_ready):
         raise HTTPException(503, "Translation model not ready.")
 
     src = req.source_lang
+
+    if src == "ja" and req.target_lang == "ko" and _is_cjk(normalized_text):
+        if JA_TRANSLATION_MODE in {"auto", "direct"}:
+            result = _translate_ja_direct_in_chunks(normalized_text)
+            if result is not None:
+                return TranslateResponse(translatedText=result)
+            if JA_TRANSLATION_MODE == "direct":
+                raise HTTPException(422, "Direct ja->ko translation failed.")
+
+        result = _translate_with_argos(normalized_text, "ja", req.target_lang)
+        if result is not None:
+            return TranslateResponse(translatedText=result)
+
+        raise HTTPException(422, "No ja->ko translation path available.")
+
     candidate_sources = [src]
     if src != "en" and not _is_cjk(normalized_text):
         candidate_sources.append("en")

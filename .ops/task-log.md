@@ -1,6 +1,6 @@
 # Task Log
 
-- 현재 단계: Phase 0 / Step 26 착수 - 일본어 직행 번역 전략 문서화 및 Claude handoff 준비
+- 현재 단계: Phase 0 / Step 26-A 완료 - direct ja→ko 첫 슬라이스 구현 및 실측 검증
 - 현재 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 - 이번 세션 완료:
   - `audio/capture`에서 기본 Render 디바이스 대상 `WASAPI loopback` 런타임 프로브 구현
@@ -213,11 +213,38 @@
     - `docs/DECISIONS/0004-...` 일본어 직행 번역 전략 문서
     - Claude 요청서 / handoff / checkpoint 작성
     - shared-context 최신화
+- Step 26-A 완료 (2026-04-23):
+  - `services/local-ai/main.py`
+    - `LOCAL_AI_JA_TRANSLATION_MODE` (`auto|bridge|direct`) 추가
+    - `LOCAL_AI_JA_DIRECT_MODEL` 기본값 `facebook/nllb-200-distilled-600M`
+    - direct `ja→ko` 로더 추가 (`AutoTokenizer(use_fast=False)` + `AutoModelForSeq2SeqLM`)
+    - `ja` + CJK 텍스트일 때 `direct -> bridge` 순서로 라우팅
+    - health 응답에 `translation_engines.ja_direct`, `ja_translation.*` 상태 추가
+    - 개발 캐시(`services/local-ai/models`)와 AppData 캐시를 모두 탐색하도록 HF snapshot 탐색 로직 추가
+  - `services/local-ai/model-download.py`
+    - direct `ja→ko` 모델 다운로드 경로 추가
+  - `services/local-ai/local-ai.spec`
+    - `m2m_100`, `nllb` tokenizer/model hiddenimports 추가
+  - `.env.example`
+    - `LOCAL_AI_JA_TRANSLATION_MODE`
+    - `LOCAL_AI_JA_DIRECT_MODEL`
+  - `services/local-ai/test_text_processing.py`
+    - direct `ja→ko` 우선 테스트 추가
+    - direct 실패 시 bridge fallback 테스트 추가
+    - 총 7건 통과
+  - local-ai 재기동 후 health 검증:
+    - `translation_engines.ja_direct = true`
+    - `ja_translation.mode = auto`
+    - `ja_translation.direct_model = facebook/nllb-200-distilled-600M`
+  - 실측 비교:
+    - direct 결과: `今日は...` → `오늘 우리는 모델의 정확성뿐만 아니라 어떤 경우에 오류가 발생할 수 있는지 살펴볼 것입니다.`
+    - bridge 결과: `오늘, 우리는 모델의 정확성뿐만 아니라 모든 장면에서 오류를 볼 수 없습니다.`
+    - second sample에서도 direct가 의미 보존과 자연스러움 모두 우세
 - 현재 상태 (2026-04-23):
   - 정책: 유료 API(DeepL, OpenAI) 사용 안 함 — 완전 로컬/무료 스택
   - sidecar-bin/ → .gitignore (clone 후 재빌드 필요)
-  - local-ai 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
-  - 일본어는 아직 bridge 경로가 기본이므로 direct ja→ko 전략 확정이 다음 핵심 작업
+  - 영어 번역 기본 경로는 Argos, Marian은 보조/fallback 성격
+  - 일본어 번역은 이제 direct `ja→ko`가 기본(`auto` 모드), bridge는 fallback
   - GitHub remote 미설정 (사용자 레포 생성 대기 중)
 - 최신 handoff 자료:
   - `.ops/ai-bridge/requests/2026-04-20-1545-from-codex-to-claude-step6-persistent-worker.md`
