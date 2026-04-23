@@ -1,0 +1,32 @@
+# Checkpoint
+
+- Date: 2026-04-22 19:35
+- Branch: `main`
+- Topic: Step 16 kickoff - local downloadable open-source pivot planning
+- Files changed:
+  - `.ops/ai-bridge/shared-context.md`
+  - `docs/DECISIONS/0003-local-downloadable-open-source-stack.md`
+  - `.ops/ai-bridge/requests/2026-04-22-1935-from-codex-to-claude-step16-local-open-source-pivot.md`
+  - `.ops/handoff-2026-04-22-1935-codex-to-claude-step16-local-open-source.md`
+  - `.ops/checkpoints/2026-04-22-1935-step16-local-open-source-kickoff.md`
+- Decisions made:
+  - 로컬 다운로드형 오픈소스 피벗은 전체 구조 폐기가 아니라 provider layer 교체로 본다.
+  - 우선 검토 축은 `faster-whisper vs whisper.cpp`, `Argos vs LibreTranslate`다.
+  - Claude에는 설계/파일 단위 계획을 먼저 요청한다.
+- Commands run:
+  - `Get-Content .ops/task-log.md`
+  - `Get-ChildItem .ops/ai-bridge/requests`
+  - `Get-Content .ops/ai-bridge/shared-context.md`
+  - `git status --short`
+  - `Get-ChildItem docs/DECISIONS`
+  - `Get-Content docs/TRD.md`
+  - `Get-Content .ops/ai-bridge/CLAUDE_START.md`
+- Validation result:
+  - local-open-source pivot request/handoff docs created
+  - no runtime code changes yet
+- Remaining work:
+  - Claude response 받기
+  - TRD에 로컬 공급자 모드 문단 추가
+  - 첫 구현 slice 선택 후 착수
+- Resume prompt:
+  - `Read the new Step 16 request and handoff docs, wait for Claude's response, then implement the first local provider slice without destabilizing the capture pipeline.`

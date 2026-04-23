@@ -48,3 +48,4 @@ npm run dev -w @sorisori/pipeline
 pipeline 서비스는 `session.join` 메시지로 게이트웨이에 세션 구독을 등록한다.
 오디오를 생성하거나 OpenAI 연결을 만들지 않는다.
 게이트웨이 연결이 끊기면 3초 후 자동으로 재연결을 시도한다.
+desktop과 web이 기본값 `mvp-session-001`를 쓰면 `PIPELINE_SESSION_IDS=mvp-session-001`로 그대로 맞출 수 있다.

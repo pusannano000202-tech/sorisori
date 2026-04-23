@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 cargo_toml = "=0.22.1"
 embed-resource = "=3.0.4"
 indexmap = "=2.13.0"
-tauri-build = { version = "=2.3.1" }
+tauri-build = { version = "=2.3.1", features = [] }
 tauri-codegen = "=2.3.1"
 tauri-utils = "=2.6.0"
 tauri-winres = "=0.3.1"
@@ -24,7 +24,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 serde_with = "=3.12.0"
 indexmap = "=2.13.0"
-tauri = { version = "=2.6.0" }
+tauri = { version = "=2.6.0", features = [] }
 tauri-macros = "=2.3.0"
 tauri-runtime = "=2.7.0"
 tauri-runtime-wry = { version = "=2.7.0", default-features = false }

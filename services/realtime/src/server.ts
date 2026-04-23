@@ -282,14 +282,17 @@ export async function startRealtimeGatewayServer(
     const endMs = nowMs - session.sessionStartedAtMs;
     session.itemFirstSeenAtMs.delete(completed.itemId);
 
-    let translatedText = "";
     const transcriptTrimmed = completed.transcript.trim();
-    if (transcriptTrimmed) {
-      if (localAiUrl) {
-        translatedText = (await translateWithLocalAi(completed.transcript, localAiUrl)) ?? "";
-      } else if (deeplApiKey) {
-        translatedText = (await translateWithDeepL(completed.transcript, deeplApiKey)) ?? "";
-      }
+    if (!transcriptTrimmed) {
+      return;
+    }
+
+    let translatedText = "";
+    if (localAiUrl) {
+      const srcLang = session.sourceLanguage ?? "en";
+      translatedText = (await translateWithLocalAi(completed.transcript, localAiUrl, "ko", srcLang)) ?? "";
+    } else if (deeplApiKey) {
+      translatedText = (await translateWithDeepL(completed.transcript, deeplApiKey)) ?? "";
     }
 
     const segment: TranscriptSegment = {

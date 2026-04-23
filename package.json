@@ -13,6 +13,7 @@
     "dev:desktop": "npm run dev -w @sorisori/desktop",
     "dev:realtime": "npm run dev -w @sorisori/realtime",
     "dev:pipeline": "npm run dev -w @sorisori/pipeline",
+    "dev:local-ai": "services/local-ai/.venv/Scripts/python services/local-ai/main.py",
     "build:web": "npm run build -w @sorisori/web",
     "build:desktop": "npm run build -w @sorisori/desktop",
     "build:realtime": "npm run build -w @sorisori/realtime",

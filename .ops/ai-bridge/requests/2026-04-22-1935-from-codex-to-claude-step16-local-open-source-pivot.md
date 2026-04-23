@@ -1,0 +1,44 @@
+# Request
+
+- Topic: Step 16 local downloadable open-source pivot review
+- From: Codex
+- To: Claude Code
+- Goal: 사용자 방향이 "API 비용 없는 다운로드형 로컬 앱"으로 바뀌었다. 기존 아키텍처를 최대한 유지하면서, OpenAI/DeepL provider를 로컬 오픈소스 STT/번역 엔진으로 바꾸는 정확한 실행 계획을 리뷰해달라.
+- Read first:
+  - `.ops/ai-bridge/CLAUDE_START.md`
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `docs/TRD.md`
+  - `docs/DECISIONS/0003-local-downloadable-open-source-stack.md`
+- Current repository facts:
+  - desktop app already captures Windows system audio via `WASAPI loopback`
+  - audio is normalized to `PCM16 / mono / 24kHz`
+  - realtime gateway, pipeline store, web viewer/history/detail pages already exist
+  - current provider path is `OpenAI realtime transcription + DeepL text translation`
+  - user now prefers a local downloadable model with no usage-based API billing
+- Files in primary scope:
+  - `docs/TRD.md`
+  - `docs/DECISIONS/0003-local-downloadable-open-source-stack.md`
+  - `apps/desktop/**`
+  - `services/realtime/**`
+  - `services/pipeline/**`
+  - `packages/contracts/**`
+- Files to avoid changing unless necessary:
+  - `apps/web/**` visual structure
+  - existing WASAPI capture core in `apps/desktop/src-tauri/src/audio/**`
+- Questions to answer:
+  - For this repo, should Step 16 prefer `faster-whisper` or `whisper.cpp` as the primary local STT engine?
+  - For translation, should Step 16 prefer `Argos Translate` directly or `LibreTranslate` as a local service layer?
+  - Should local inference run inside the desktop app, inside a local `services/realtime` process, or as a hybrid bridge?
+  - What is the safest incremental migration path from the current OpenAI/DeepL provider flow?
+  - How should model download/updates work for a downloadable Windows app?
+  - What should the first implementation slice be so Codex can start without destabilizing the current stack?
+- Desired response format:
+  - Conclusion
+  - Recommended local stack
+  - Exact Step 16 file plan
+  - Packaging/model download strategy
+  - Risks / guardrails
+  - Optional TRD patch snippet
+- Urgency:
+  - Immediate planning handoff. Codex will implement the first local-provider slice next.

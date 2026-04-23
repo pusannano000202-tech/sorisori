@@ -36,11 +36,13 @@ a = Analysis(
         'faster_whisper',
         'huggingface_hub',
         'tokenizers',
-        # argostranslate
-        'argostranslate',
-        'argostranslate.translate',
-        'argostranslate.package',
+        # MarianMT / transformers (en→ko translation)
+        'transformers',
+        'transformers.models.marian',
+        'transformers.models.marian.modeling_marian',
+        'transformers.models.marian.tokenization_marian',
         'sentencepiece',
+        'sacremoses',
         # numpy
         'numpy',
         'numpy.core._multiarray_umath',
@@ -52,8 +54,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # torch/stanza — pulled in by argostranslate but not needed at runtime
-        'torch',
+        # stanza / heavy torch extensions not needed
         'stanza',
         'torchvision',
         'torchaudio',

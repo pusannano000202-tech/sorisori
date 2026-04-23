@@ -17,6 +17,21 @@ src-tauri/target/
 .env.*
 !.env.example
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Sidecar binaries (built artifacts — too large for GitHub, rebuild locally)
+apps/desktop/src-tauri/sidecar-bin/
+
+# Runtime logs (transient)
+.ops/runtime-logs/
+
+# PyInstaller build cache
+services/local-ai/build/
+
 # OS / editor
 .DS_Store
 Thumbs.db

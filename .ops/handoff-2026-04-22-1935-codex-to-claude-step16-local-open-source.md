@@ -1,0 +1,39 @@
+# Handoff
+
+- 작업 주제: Step 16 local downloadable open-source pivot planning
+- 현재 브랜치: `main`
+- 읽고 시작할 파일:
+  - `.ops/ai-bridge/shared-context.md`
+  - `.ops/task-log.md`
+  - `docs/TRD.md`
+  - `docs/DECISIONS/0003-local-downloadable-open-source-stack.md`
+  - `apps/desktop/src-tauri/src/audio/capture.rs`
+  - `apps/desktop/src-tauri/src/audio/worker.rs`
+  - `services/realtime/src/server.ts`
+  - `services/realtime/src/openai-realtime-transcription.ts`
+  - `services/realtime/src/deepl-translation.ts`
+  - `services/pipeline/src/server.ts`
+- 이번 시점의 핵심:
+  - 캡처, 세션, 세그먼트 저장, 웹 조회까지는 이미 구현되어 있다.
+  - 병목은 이제 "외부 API provider를 어떤 로컬 엔진으로 대체할지"다.
+  - 사용자 목표는 "API 비용 없는 다운로드형 앱"이다.
+- 유지하고 싶은 것:
+  - `WASAPI loopback`
+  - `PCM16 / mono / 24kHz` 정규화 경로
+  - 세션 이벤트/세그먼트 모델
+  - web history/detail/live viewer 구조
+- 바꾸고 싶은 것:
+  - OpenAI realtime transcription
+  - DeepL translation
+  - 원격 환경변수 중심 운영
+- 아직 안 끝난 것:
+  - 로컬 STT/번역 엔진 선택
+  - 모델 다운로드/업데이트 전략
+  - desktop 내부 통합 vs local background service 경계
+  - first implementation slice 확정
+- 주의사항:
+  - 기존 UI와 세션 모델은 최대한 유지한다.
+  - "전체 구조 폐기"가 아니라 provider layer 교체를 원칙으로 한다.
+  - 현재 dirty worktree가 있으므로, Claude는 설계/문서 중심으로 답변하는 편이 안전하다.
+- 다음 AI에 전달할 한 줄 프롬프트:
+  - `.ops/ai-bridge/CLAUDE_START.md`, `.ops/ai-bridge/shared-context.md`, `.ops/handoff-2026-04-22-1935-codex-to-claude-step16-local-open-source.md`, `.ops/ai-bridge/requests/2026-04-22-1935-from-codex-to-claude-step16-local-open-source-pivot.md`를 읽고, 응답을 `.ops/ai-bridge/responses/`에 새 md 파일로 남겨줘.

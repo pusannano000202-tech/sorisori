@@ -1,0 +1,52 @@
+# Checkpoint
+
+- Date: 2026-04-22 19:07
+- Branch: `main`
+- Topic: Step 15 complete - desktop/web/pipeline shared session ID alignment
+- Files changed:
+  - `.env.example`
+  - `.ops/task-log.md`
+  - `README.md`
+  - `apps/desktop/README.md`
+  - `apps/desktop/src/index.html`
+  - `apps/desktop/src/main.js`
+  - `apps/desktop/src/styles.css`
+  - `apps/web/README.md`
+  - `services/pipeline/README.md`
+- Decisions made:
+  - desktop capture session ID는 랜덤 UUID 대신 사용자가 지정 가능한 공유 값으로 시작한다.
+  - desktop 기본 세션 ID는 `mvp-session-001`로 두고 `localStorage`에 유지한다.
+  - 세션 실행 중에는 입력값을 잠가 현재 실행 세션과 다음 실행 세션이 섞이지 않게 한다.
+  - 문서와 실행 안내는 실제 구현 상태 기준으로 맞춘다.
+- Commands run:
+  - `node --check apps/desktop/src/main.js`
+  - `npm run check -w @sorisori/desktop`
+  - `git diff -- apps/desktop/src/index.html apps/desktop/src/main.js apps/desktop/src/styles.css README.md apps/desktop/README.md apps/web/README.md services/pipeline/README.md .ops/task-log.md`
+  - `npm run dev:realtime`
+  - `PIPELINE_SESSION_IDS=mvp-session-001 npm run dev:pipeline`
+  - `npm run dev:web`
+  - `Invoke-WebRequest http://127.0.0.1:8787/health`
+  - `Invoke-WebRequest http://127.0.0.1:8788/health`
+  - `Invoke-WebRequest http://127.0.0.1:3000/api/health`
+  - `Invoke-WebRequest http://127.0.0.1:3000/session`
+  - `Invoke-WebRequest http://127.0.0.1:3000/history`
+  - `Invoke-WebRequest http://127.0.0.1:3000/session/mvp-session-001`
+- Validation result:
+  - desktop frontend script syntax check passed
+  - desktop Rust cargo check passed
+  - realtime/pipeline/web dev servers started successfully
+  - realtime `/health`, pipeline `/health`, web `/api/health` responded successfully
+  - web `/session`, `/history`, `/session/mvp-session-001` returned expected page content
+  - current shell had no `OPENAI_API_KEY`, `DEEPL_API_KEY`, or `DATABASE_URL`, so provider-backed live transcript and Postgres persistence were not exercised
+- Remaining work:
+  - `OPENAI_API_KEY` + `DEEPL_API_KEY`를 넣고 전체 스택 live 검증
+  - PostgreSQL migrate 및 persistent store live 검증
+  - pipeline 재시작 후 세그먼트 복원 전략 정리
+- Next immediate step:
+  - `npm run dev:realtime`
+  - `PIPELINE_SESSION_IDS=mvp-session-001 npm run dev:pipeline`
+  - `npm run dev:web`
+  - `npm run dev:desktop`
+  - desktop에서 세션 ID가 `mvp-session-001`인지 확인 후 30초 캡처
+- Resume prompt:
+  - `Step 15 complete. The desktop app now starts capture with a shared session ID instead of a random UUID. Launch realtime, pipeline, web, and desktop together with sessionId mvp-session-001, then verify live transcript, pipeline summary, and history/detail pages end-to-end.`

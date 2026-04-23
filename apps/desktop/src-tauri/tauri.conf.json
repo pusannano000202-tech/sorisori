@@ -22,7 +22,12 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": "all"
+    "active": true,
+    "targets": ["nsis"],
+    "externalBin": [
+      "sidecar-bin/sorisori-local-ai",
+      "sidecar-bin/sorisori-realtime",
+      "sidecar-bin/sorisori-pipeline"
+    ]
   }
 }
