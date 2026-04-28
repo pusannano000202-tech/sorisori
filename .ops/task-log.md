@@ -325,3 +325,23 @@
     - 사용자 PC에서 새 NSIS 설치본으로 재설치 후 앱 UI 기준 최종 확인 필요
   - 토큰 보호 운영 규칙 추가:
     - 일일 토큰 사용량 체감이 93% 이상이면 구현 중단하고 handoff/checkpoint 작성 모드로 즉시 전환
+
+- Step 26-F 진행 (2026-04-28) — Codex:
+  - 증상:
+    - `realtime(8787)` / `local-ai(8789)`는 기동되는데 `pipeline(8788)`만 실행 직후 종료
+  - 원인:
+    - `services/pipeline/src/server.ts`의 엔트리 조건이 ESM(`import.meta.url`) 전용
+    - 그런데 sidecar 빌드는 `esbuild --format=cjs` + `pkg`를 사용하므로 `main()` 진입이 스킵되어 프로세스가 조용히 종료
+  - 조치:
+    - `server.ts`에 `isExecutedAsScript()` 추가
+    - CJS(`require.main === module`) + ESM(`import.meta.url`) 둘 다 인식하도록 엔트리 가드 보강
+    - pipeline sidecar 재빌드:
+      - `npx esbuild services/pipeline/src/server.ts --bundle --platform=node --target=node18 --format=cjs --outfile=services/pipeline/dist/bundle.cjs --external:ws --external:@prisma/client`
+      - `npx pkg services/pipeline/dist/bundle.cjs --target node18-win-x64 --output apps/desktop/src-tauri/sidecar-bin/sorisori-pipeline-x86_64-pc-windows-msvc.exe`
+  - 검증:
+    - `npm run check -w @sorisori/pipeline` 통과
+    - `npm run test -w @sorisori/pipeline` 통과
+    - `/health` 확인:
+      - `http://127.0.0.1:8787/health` → 200
+      - `http://127.0.0.1:8788/health` → 200
+      - `http://127.0.0.1:8789/health` → 200

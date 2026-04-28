@@ -192,7 +192,29 @@ async function main() {
 }
 
 const entryPath = process.argv[1];
-if (entryPath && import.meta.url === new URL(`file://${entryPath}`).href) {
+function isExecutedAsScript() {
+  if (!entryPath) {
+    return false;
+  }
+
+  // pkg/esbuild CJS bundles
+  try {
+    if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
+      return true;
+    }
+  } catch {
+    // no-op
+  }
+
+  // native ESM execution (tsx/node --import etc.)
+  try {
+    return import.meta.url === new URL(`file://${entryPath}`).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isExecutedAsScript()) {
   main().catch((error: unknown) => {
     console.error("[sorisori-pipeline] failed to start", error);
     process.exitCode = 1;

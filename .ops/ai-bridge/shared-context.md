@@ -25,7 +25,7 @@
 - `/session/[id]` 세션 상세 페이지에서 요약/세그먼트 아카이브 조회 구현
 - desktop/web/pipeline 세션 ID 정렬 및 live 검증 준비 완료
 
-## 현재 기술 기준 (2026-04-23 기준 최신)
+## 현재 기술 기준 (2026-04-28 기준 최신)
 
 - Windows MVP 오디오 캡처: `wasapi` (WASAPI loopback)
 - 포맷 변환: `rubato + dasp` (PCM16 / mono / 24kHz)
@@ -45,8 +45,8 @@
 
 ## 현재 다음 우선순위
 
-1. 새 NSIS 설치본 재설치 후 실행 검증 (사용자 환경)
-2. 설치본 `고급 정보 > 사이드카 상태/로그`에서 startup 로그 확인
+1. pipeline CJS 엔트리 가드 수정이 반영된 새 NSIS 설치본 재설치 후 실행 검증 (사용자 환경)
+2. 설치본 `고급 정보 > 사이드카 상태/로그`에서 3개 포트(`8787/8788/8789`) health 정상 여부 확인
 3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
 4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
 5. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
@@ -62,5 +62,6 @@
 - 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer 교체"를 원칙으로 한다.
 - 일본어는 이제 direct 경로를 우선 사용하므로, 품질 검증과 패키징 안정화가 다음 핵심이다.
 - `services/local-ai/local-ai.spec`는 2026-04-28에 단순 onefile spec으로 교체되었고, sidecar 단독 `/health` 검증은 통과했다.
+- `services/pipeline/src/server.ts`는 2026-04-28에 CJS/ESM 겸용 엔트리 가드로 수정되었고, pipeline sidecar 단독 `/health` 검증은 통과했다.
 - 노트북 재개용 종합 handoff는 `.ops/handoff-2026-04-23-codex-to-laptop-github-resume.md`에 있다.
 - 운영 규칙: 토큰 사용량이 93% 이상이면 구현보다 handoff/checkpoint 작성 우선으로 전환한다.
