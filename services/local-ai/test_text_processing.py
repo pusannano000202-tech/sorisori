@@ -104,8 +104,16 @@ class TextProcessingTests(unittest.TestCase):
             response = local_ai_main.translate(request)
 
         self.assertEqual(response.translatedText, "오늘은 운영 안정성을 살펴봅니다.")
-        self.assertEqual(calls[0][1], "ja")
-        self.assertEqual(calls[1][1], "en")
+        self.assertEqual(calls[0][1], "en")
+        self.assertEqual(len(calls), 1)
+
+    def test_translate_route_drops_hangul_when_source_locked_to_english(self):
+        request = local_ai_main.TranslateRequest(
+            text="점심은 뭐 드실거에요?",
+            source_lang="en",
+        )
+        response = local_ai_main.translate(request)
+        self.assertEqual(response.translatedText, "")
 
 
 if __name__ == "__main__":

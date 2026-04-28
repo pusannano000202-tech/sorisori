@@ -25,11 +25,11 @@ interface LocalTranscribeResponse {
 // PCM16 mono 24kHz: RMS below this value is treated as silence.
 const SILENCE_RMS_THRESHOLD = 80;
 // Consecutive silent chunks (~20ms each) before flushing speech buffer.
-const SILENCE_CHUNKS_REQUIRED = 10; // ~200ms of silence
+const SILENCE_CHUNKS_REQUIRED = 14; // ~280ms of silence
 // Minimum buffered speech chunks before a flush is worthwhile.
-const MIN_SPEECH_CHUNKS = 15; // ~300ms minimum context for Whisper
-// Force flush when this many speech chunks accumulate (~2 seconds max batch).
-const MAX_SPEECH_CHUNKS = 100;
+const MIN_SPEECH_CHUNKS = 20; // ~400ms minimum context for Whisper
+// Force flush when this many speech chunks accumulate (~3 seconds max batch).
+const MAX_SPEECH_CHUNKS = 150;
 const TRANSCRIBE_TIMEOUT_MS = 60_000;
 
 function computeRms(pcm16: Buffer): number {

@@ -63,5 +63,7 @@
 - 일본어는 이제 direct 경로를 우선 사용하므로, 품질 검증과 패키징 안정화가 다음 핵심이다.
 - `services/local-ai/local-ai.spec`는 2026-04-28에 단순 onefile spec으로 교체되었고, sidecar 단독 `/health` 검증은 통과했다.
 - `services/pipeline/src/server.ts`는 2026-04-28에 CJS/ESM 겸용 엔트리 가드로 수정되었고, pipeline sidecar 단독 `/health` 검증은 통과했다.
+- `services/local-ai/main.py`는 2026-04-28 Step 27에서 언어 고정 힌트(strict/soft), 일본어 direct 우선 경로 보강, 한글 혼입 드롭, short-fragment 완화가 반영되었다.
+- `services/realtime/src/local-transcription-bridge.ts`는 같은 Step 27에서 flush 타이밍을 완화해 문장 조각/누락을 줄이도록 튜닝되었다.
 - 노트북 재개용 종합 handoff는 `.ops/handoff-2026-04-23-codex-to-laptop-github-resume.md`에 있다.
 - 운영 규칙: 토큰 사용량이 93% 이상이면 구현보다 handoff/checkpoint 작성 우선으로 전환한다.

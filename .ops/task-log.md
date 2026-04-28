@@ -345,3 +345,35 @@
       - `http://127.0.0.1:8787/health` → 200
       - `http://127.0.0.1:8788/health` → 200
       - `http://127.0.0.1:8789/health` → 200
+
+- Step 27 진행 (2026-04-28) — Codex:
+  - 사용자 품질 피드백(영어/일본어 오역, 언어 혼입) 반영 1차 수정
+  - `services/local-ai/main.py`
+    - 언어 고정 힌트 모드 추가: `LOCAL_AI_LANGUAGE_HINT_MODE` (`strict|soft`, 기본 `strict`)
+    - 영어/일본어 힌트가 있을 때 transcript script guard 적용
+      - `hint=en`: 한글 transcript 드롭 (strict에서는 라틴문자 없는 결과도 드롭)
+      - `hint=ja`: 한글 transcript 드롭 (strict에서는 일본어 스크립트 없는 결과 드롭)
+    - Whisper 경로 수정:
+      - language hint가 있으면 `task=transcribe` 고정 (영어/일본어 강제 모드)
+      - auto-detect에서 `en/ja/ko`는 `task=transcribe`
+      - 그 외 언어만 `task=translate` 경로 사용
+    - fragment 필터 완화:
+      - 비CJK 최소 단어 수 기준 `3` → `2`
+    - translate 경로 수정:
+      - 한글 passthrough를 `source_lang == ko`일 때만 허용
+      - `source_lang in {en, ja}` + 한글 텍스트는 드롭
+      - `source_lang=ja`인데 비CJK(영어형) transcript면 `en->ko` 우선 시도
+  - `services/realtime/src/local-transcription-bridge.ts`
+    - 문장 누락 완화용 오디오 flush 튜닝:
+      - `SILENCE_CHUNKS_REQUIRED` 10→14
+      - `MIN_SPEECH_CHUNKS` 15→20
+      - `MAX_SPEECH_CHUNKS` 100→150
+  - `services/local-ai/test_text_processing.py`
+    - 일본어 세션 + 영어 transcript fallback 테스트를 en 우선 경로로 갱신
+    - 영어 고정(source=en) + 한글 transcript 드롭 테스트 추가
+  - `.env.example`
+    - `LOCAL_AI_LANGUAGE_HINT_MODE=strict` 추가
+  - 검증:
+    - `services/local-ai/.venv/Scripts/python.exe services/local-ai/test_text_processing.py` 통과 (8/8)
+    - `npm run check -w @sorisori/realtime` 통과
+    - `npm run test -w @sorisori/realtime` 통과

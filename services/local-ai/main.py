@@ -3,12 +3,68 @@
 from __future__ import annotations
 
 import base64
+import faulthandler
 import logging
 import os
 import re
+import sys
+import traceback
 import unicodedata
 from contextlib import asynccontextmanager
 from typing import Optional
+
+# Enable faulthandler so native crashes (segfault, stack overrun) print Python traceback.
+faulthandler.enable(sys.stderr, all_threads=True)
+sys.stderr.write(f"[boot] python={sys.version.split()[0]} cwd={os.getcwd()}\n")
+sys.stderr.flush()
+
+
+def _preload_ctranslate2_runtime() -> None:
+    """In PyInstaller bundles, both `torch/lib/` and `ctranslate2/` ship `libiomp5md.dll`.
+    Windows DLL loader picks `torch/lib`'s copy first, which has a different ABI than the
+    one ctranslate2 was built against — causing STATUS_STACK_BUFFER_OVERRUN (0xC0000409)
+    when ctranslate2 first calls into OpenMP. Pin the ctranslate2 directory at the front
+    of the DLL search path AND pre-load every DLL it ships so torch's copies never win.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    base_dir = getattr(sys, "_MEIPASS", None) or os.path.dirname(sys.executable)
+    ct2_dir = os.path.join(base_dir, "ctranslate2")
+    if not os.path.isdir(ct2_dir):
+        sys.stderr.write(f"[boot] preload: skipped (no {ct2_dir})\n"); sys.stderr.flush()
+        return
+    if hasattr(os, "add_dll_directory"):
+        try:
+            os.add_dll_directory(ct2_dir)
+            sys.stderr.write(f"[boot] preload: add_dll_directory {ct2_dir}\n"); sys.stderr.flush()
+        except OSError as exc:
+            sys.stderr.write(f"[boot] preload: add_dll_directory failed: {exc}\n"); sys.stderr.flush()
+    import ctypes
+    for name in ("libiomp5md.dll", "cudnn64_9.dll", "ctranslate2.dll"):
+        path = os.path.join(ct2_dir, name)
+        if not os.path.exists(path):
+            sys.stderr.write(f"[boot] preload: missing {name}\n"); sys.stderr.flush()
+            continue
+        try:
+            ctypes.CDLL(path)
+            sys.stderr.write(f"[boot] preload: loaded {name}\n"); sys.stderr.flush()
+        except OSError as exc:
+            sys.stderr.write(f"[boot] preload: {name} failed: {exc}\n"); sys.stderr.flush()
+
+
+_preload_ctranslate2_runtime()
+
+# Import ctranslate2 EARLY — before numpy/FastAPI/anything that might pull in
+# conflicting math runtimes. Bundled exe crashes with STATUS_STACK_BUFFER_OVERRUN
+# if ctranslate2 is imported lazily inside lifespan.
+sys.stderr.write("[boot] importing ctranslate2 early\n"); sys.stderr.flush()
+try:
+    import ctranslate2 as _ctranslate2_early  # noqa: F401
+    sys.stderr.write(f"[boot] ctranslate2 OK ver={_ctranslate2_early.__version__}\n"); sys.stderr.flush()
+except BaseException:
+    sys.stderr.write("[boot] ctranslate2 EARLY IMPORT FAILED:\n"); sys.stderr.flush()
+    traceback.print_exc(file=sys.stderr); sys.stderr.flush()
+    raise
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -40,6 +96,10 @@ if JA_TRANSLATION_MODE not in {"auto", "bridge", "direct"}:
     JA_TRANSLATION_MODE = "auto"
 JA_SOURCE_LANG_CODE = os.environ.get("LOCAL_AI_JA_SOURCE_LANG_CODE", "jpn_Jpan")
 KO_TARGET_LANG_CODE = os.environ.get("LOCAL_AI_KO_TARGET_LANG_CODE", "kor_Hang")
+LANGUAGE_HINT_MODE = os.environ.get("LOCAL_AI_LANGUAGE_HINT_MODE", "strict").strip().lower() or "strict"
+if LANGUAGE_HINT_MODE not in {"strict", "soft"}:
+    log.warning("Invalid LOCAL_AI_LANGUAGE_HINT_MODE=%r, falling back to 'strict'", LANGUAGE_HINT_MODE)
+    LANGUAGE_HINT_MODE = "strict"
 ARGOS_PACKS = [
     ("en", "ko"),
     ("ja", "en"),
@@ -71,7 +131,18 @@ _last_transcript: dict[str, str] = {}
 
 def _load_whisper():
     global _whisper_model
+    sys.stderr.write("[boot] _load_whisper: importing ctranslate2\n"); sys.stderr.flush()
+    import ctranslate2  # noqa: F401
+    sys.stderr.write(f"[boot] _load_whisper: ctranslate2 OK ver={ctranslate2.__version__}\n"); sys.stderr.flush()
+    sys.stderr.write("[boot] _load_whisper: importing tokenizers\n"); sys.stderr.flush()
+    import tokenizers  # noqa: F401
+    sys.stderr.write("[boot] _load_whisper: tokenizers OK\n"); sys.stderr.flush()
+    sys.stderr.write("[boot] _load_whisper: importing onnxruntime\n"); sys.stderr.flush()
+    import onnxruntime  # noqa: F401
+    sys.stderr.write(f"[boot] _load_whisper: onnxruntime OK ver={onnxruntime.__version__}\n"); sys.stderr.flush()
+    sys.stderr.write("[boot] _load_whisper: importing faster_whisper\n"); sys.stderr.flush()
     from faster_whisper import WhisperModel  # type: ignore[import-untyped]
+    sys.stderr.write("[boot] _load_whisper: faster_whisper OK\n"); sys.stderr.flush()
 
     device = DEVICE
     if device == "auto":
@@ -237,8 +308,17 @@ def _load_translation():
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    _load_whisper()
-    _load_translation()
+    sys.stderr.write("[boot] lifespan: entering\n"); sys.stderr.flush()
+    try:
+        sys.stderr.write("[boot] lifespan: about to call _load_whisper\n"); sys.stderr.flush()
+        _load_whisper()
+        sys.stderr.write("[boot] lifespan: _load_whisper returned\n"); sys.stderr.flush()
+        _load_translation()
+        sys.stderr.write("[boot] lifespan: _load_translation returned\n"); sys.stderr.flush()
+    except BaseException:
+        sys.stderr.write("[boot] lifespan: EXCEPTION:\n"); sys.stderr.flush()
+        traceback.print_exc(file=sys.stderr); sys.stderr.flush()
+        raise
     yield
 
 
@@ -296,6 +376,51 @@ def _contains_hangul(text: str) -> bool:
         if "HANGUL" in name:
             return True
     return False
+
+
+def _contains_latin(text: str) -> bool:
+    for ch in text:
+        name = unicodedata.name(ch, "")
+        if "LATIN" in name:
+            return True
+    return False
+
+
+def _contains_japanese_kana(text: str) -> bool:
+    for ch in text:
+        name = unicodedata.name(ch, "")
+        if "HIRAGANA" in name or "KATAKANA" in name:
+            return True
+    return False
+
+
+def _apply_language_hint_guard(transcript: str, language_hint: Optional[str]) -> str:
+    normalized = _normalize_text_for_display(transcript)
+    if not normalized or not language_hint:
+        return normalized
+
+    hint = language_hint.lower()
+
+    if hint == "en":
+        if _contains_hangul(normalized):
+            log.info("Language hint=en dropped Hangul transcript: %r", normalized[:80])
+            return ""
+        if LANGUAGE_HINT_MODE == "strict" and not _contains_latin(normalized):
+            log.info("Language hint=en strict dropped non-Latin transcript: %r", normalized[:80])
+            return ""
+        return normalized
+
+    if hint == "ja":
+        if _contains_hangul(normalized):
+            log.info("Language hint=ja dropped Hangul transcript: %r", normalized[:80])
+            return ""
+        if LANGUAGE_HINT_MODE == "strict":
+            if not (_contains_japanese_kana(normalized) or _is_cjk(normalized)):
+                log.info("Language hint=ja strict dropped non-Japanese transcript: %r", normalized[:80])
+                return ""
+        return normalized
+
+    return normalized
 
 
 def _normalize_text_for_display(text: str) -> str:
@@ -506,8 +631,8 @@ def _is_short_fragment(text: str, lang: Optional[str]) -> bool:
         # CJK: filter if fewer than 6 characters (excludes punctuation)
         char_count = sum(1 for c in normalized if not unicodedata.category(c).startswith("P"))
         return char_count < 6
-    # Space-separated: filter if fewer than 3 words
-    return len(normalized.split()) < 3
+    # Space-separated: filter if fewer than 2 words
+    return len(normalized.split()) < 2
 
 
 def _similarity_ratio(a: str, b: str) -> float:
@@ -555,6 +680,7 @@ def health():
             "direct_model": JA_DIRECT_MODEL,
             "direct_ready": _ja_direct_ready,
         },
+        "language_hint_mode": LANGUAGE_HINT_MODE,
         "translation_langs": {
             "argos": sorted(_argos_languages.keys()),
             "ja_direct": ["ja", "ko"] if _ja_direct_ready else [],
@@ -578,18 +704,23 @@ def transcribe(req: TranscribeRequest):
 
     samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
-    if req.language:
-        detected_lang = req.language
+    language_hint = req.language.strip().lower() if req.language else None
+    if language_hint:
+        detected_lang = language_hint
     else:
         _, probe = _whisper_model.transcribe(samples, language=None, beam_size=1, vad_filter=False)
         detected_lang = probe.language if probe else "en"
 
-    # English → transcribe directly.
-    # Other languages → use Whisper task=translate to get English first.
-    if detected_lang == "en":
+    # When language is explicitly selected, keep that language path fixed.
+    if language_hint:
+        task = "transcribe"
+        use_translate = False
+    # English/Japanese/Korean are handled as direct transcription to preserve source meaning.
+    elif detected_lang in {"en", "ja", "ko"}:
         task = "transcribe"
         use_translate = False
     else:
+        # Unknown/other languages fall back to Whisper translate→English path.
         task = "translate"
         use_translate = True
 
@@ -604,6 +735,7 @@ def transcribe(req: TranscribeRequest):
 
     transcript = "".join(seg.text for seg in segments).strip()
     transcript = _normalize_text_for_display(transcript)
+    transcript = _apply_language_hint_guard(transcript, language_hint)
 
     # If Whisper was supposed to translate (non-English) but still output CJK chars,
     # the translation failed — drop the transcript to avoid garbage output.
@@ -612,7 +744,8 @@ def transcribe(req: TranscribeRequest):
         transcript = ""
 
     # Short fragment filter (language-aware)
-    if _is_short_fragment(transcript, "en"):  # After translate task, output is always English
+    short_fragment_lang = "en" if use_translate else (language_hint or detected_lang)
+    if _is_short_fragment(transcript, short_fragment_lang):
         if transcript:
             log.info("Short fragment dropped: %r", transcript)
         transcript = ""
@@ -648,13 +781,19 @@ def translate(req: TranslateRequest):
     if not normalized_text:
         return TranslateResponse(translatedText="")
 
-    if req.target_lang == "ko" and (req.source_lang == "ko" or _contains_hangul(normalized_text)):
+    src = (req.source_lang or "en").strip().lower()
+
+    # Only explicit Korean source is passthrough.
+    if req.target_lang == "ko" and src == "ko":
         return TranslateResponse(translatedText=normalized_text)
+
+    # In locked English/Japanese sessions, drop obvious Korean transcript bleed-through.
+    if src in {"en", "ja"} and _contains_hangul(normalized_text):
+        log.info("Dropped Hangul transcript in locked %s source: %r", src, normalized_text[:80])
+        return TranslateResponse(translatedText="")
 
     if not (_argos_ready or _mt_ready or _ja_direct_ready):
         raise HTTPException(503, "Translation model not ready.")
-
-    src = req.source_lang
 
     if src == "ja" and req.target_lang == "ko" and _is_cjk(normalized_text):
         if JA_TRANSLATION_MODE in {"auto", "direct"}:
@@ -670,9 +809,13 @@ def translate(req: TranslateRequest):
 
         raise HTTPException(422, "No ja->ko translation path available.")
 
-    candidate_sources = [src]
-    if src != "en" and not _is_cjk(normalized_text):
-        candidate_sources.append("en")
+    # Japanese session that produced English text should try en->ko first.
+    if src == "ja" and not _is_cjk(normalized_text):
+        candidate_sources = ["en", "ja"]
+    else:
+        candidate_sources = [src]
+        if src != "en" and not _is_cjk(normalized_text):
+            candidate_sources.append("en")
 
     for candidate_src in dict.fromkeys(candidate_sources):
         result = _translate_with_argos(normalized_text, candidate_src, req.target_lang)
