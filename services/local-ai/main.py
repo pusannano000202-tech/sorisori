@@ -261,7 +261,9 @@ def _load_ja_direct_model():
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer  # type: ignore[import-untyped]
 
         cache_dir = os.path.join(MODELS_DIR, "nllb")
-        local_only = JA_TRANSLATION_MODE != "direct"
+        # Auto mode should still be able to recover by downloading from Hub
+        # if local snapshot lookup misses due environment-specific path quirks.
+        local_only = False
         required_snapshot_files = ("config.json", "tokenizer_config.json")
         model_source = _find_hf_snapshot(
             JA_DIRECT_MODEL,

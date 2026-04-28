@@ -377,3 +377,10 @@
     - `services/local-ai/.venv/Scripts/python.exe services/local-ai/test_text_processing.py` 통과 (8/8)
     - `npm run check -w @sorisori/realtime` 통과
     - `npm run test -w @sorisori/realtime` 통과
+  - 후속 안정화:
+    - packaged sidecar에서 `ja_direct_ready=false`가 간헐적으로 남는 문제를 줄이기 위해
+      `services/local-ai/main.py`의 direct model 로더를 `local_only=False`로 전환
+      (로컬 snapshot miss 시 Hub에서 자동 복구 로드 허용)
+    - `services/local-ai/model-download.py` 재실행으로 NLLB/Marian/Argos/Whisper 모델 재확인
+    - 재검증:
+      - packaged `sorisori-local-ai` `/health`에서 `translation_engines.ja_direct=true` 확인
