@@ -1,7 +1,7 @@
 # Shared Context
 
 - 프로젝트: 컴퓨터/노트북 등에서 재생되는 외국어 오디오를 실시간 한국어 자막으로 보여주는 웹 + 데스크톱 앱
-- 현재 날짜 기준 문맥: 2026-04-23
+- 현재 날짜 기준 문맥: 2026-04-28
 - 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 
 ## 지금까지 완료
@@ -45,11 +45,11 @@
 
 ## 현재 다음 우선순위
 
-1. packaged installer/runtime 디버깅
-2. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
-3. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
-4. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
-5. 모델 크기 선택 UI (desktop 설정 화면)
+1. 새 NSIS 설치본 재설치 후 실행 검증 (사용자 환경)
+2. 설치본 `고급 정보 > 사이드카 상태/로그`에서 startup 로그 확인
+3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
+4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
+5. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
 
 ## 지금 주의할 점
 
@@ -61,5 +61,6 @@
 - sidecar-bin/은 .gitignore에 추가됨 — git에 없으므로 clone 후 반드시 재빌드 필요.
 - 로컬 오픈소스 피벗은 "전체 구조 폐기"가 아니라 "provider layer 교체"를 원칙으로 한다.
 - 일본어는 이제 direct 경로를 우선 사용하므로, 품질 검증과 패키징 안정화가 다음 핵심이다.
-- 최신 NSIS 설치파일은 다시 빌드되었지만, 사용자 보고상 "전혀 안됨" 상태라 설치본 기준 디버깅이 우선이다.
+- `services/local-ai/local-ai.spec`는 2026-04-28에 단순 onefile spec으로 교체되었고, sidecar 단독 `/health` 검증은 통과했다.
 - 노트북 재개용 종합 handoff는 `.ops/handoff-2026-04-23-codex-to-laptop-github-resume.md`에 있다.
+- 운영 규칙: 토큰 사용량이 93% 이상이면 구현보다 handoff/checkpoint 작성 우선으로 전환한다.

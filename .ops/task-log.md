@@ -305,3 +305,23 @@
   - 시작 전 현재 작업을 여기에 갱신
   - 종료 전 체크포인트 또는 커밋 남기기
   - 설계 변경 시 TRD 먼저 수정
+
+- Step 26-E 진행 (2026-04-28) — Codex:
+  - 문제 재현 확인:
+    - 설치본에서 `local-ai` sidecar가 startup 중 비정상 종료되어 앱이 "실행 안 됨" 상태로 보임
+    - WASAPI 진단은 `preview-captured`까지 정상 확인됨 (오디오 캡처 자체는 복구)
+  - 원인 축소:
+    - 최소 재현 실험 결과, `ctranslate2`/`faster_whisper` 자체 조합은 동작
+    - `services/local-ai/local-ai.spec` 커스텀 패키징 경로에서만 불안정 증상 발생
+  - 조치:
+    - `local-ai.spec`를 단순 onefile 구성으로 교체 (`collect_all` 기반)
+    - 기존 spec의 과한 수동 바이너리 조작/필터링 제거
+    - sidecar 재빌드 + desktop `tauri build` 재실행
+  - 검증:
+    - `apps/desktop/src-tauri/sidecar-bin/sorisori-local-ai-x86_64-pc-windows-msvc.exe` 단독 기동 후 `/health` 정상 응답 확인
+    - `npm run check -w @sorisori/desktop` 통과
+    - `npm run tauri build -w @sorisori/desktop` 통과
+  - 남은 확인:
+    - 사용자 PC에서 새 NSIS 설치본으로 재설치 후 앱 UI 기준 최종 확인 필요
+  - 토큰 보호 운영 규칙 추가:
+    - 일일 토큰 사용량 체감이 93% 이상이면 구현 중단하고 handoff/checkpoint 작성 모드로 즉시 전환
