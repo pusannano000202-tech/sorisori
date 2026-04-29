@@ -688,17 +688,5 @@ export async function startRealtimeGatewayServer(
   };
 }
 
-async function main() {
-  const handle = await startRealtimeGatewayServer();
-  console.log(
-    `[sorisori-realtime] listening on http://${handle.host}:${handle.port} (ws: /ws, health: /health)`,
-  );
-}
-
-const entryPath = process.argv[1];
-if (entryPath && import.meta.url === new URL(`file://${entryPath}`).href) {
-  main().catch((error: unknown) => {
-    console.error("[sorisori-realtime] failed to start", error);
-    process.exitCode = 1;
-  });
-}
+// Intentionally no top-level auto-start here.
+// Runtime startup is owned by src/entry.ts to avoid double-listen in bundled sidecars.
