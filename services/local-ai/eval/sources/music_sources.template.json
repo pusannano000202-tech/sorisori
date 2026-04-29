@@ -1,0 +1,27 @@
+{
+  "description": "Music-mixed clips (about 5s each). Provide only legal/local files you can use.",
+  "entries": [
+    {
+      "id": "en_music_001",
+      "lang": "en",
+      "source_type": "music_mixed",
+      "expected_text": "I don't think it's going to work.",
+      "keywords": ["don't", "think", "going", "work"],
+      "local_path": "raw/en_song_01.mp3",
+      "start_sec": 42.0,
+      "duration_sec": 5.0,
+      "license_note": "user-provided-local-file"
+    },
+    {
+      "id": "ja_music_001",
+      "lang": "ja",
+      "source_type": "music_mixed",
+      "expected_text": "今日は何も言えない",
+      "keywords": ["今日", "言え"],
+      "local_path": "raw/ja_song_01.mp3",
+      "start_sec": 78.5,
+      "duration_sec": 5.0,
+      "license_note": "user-provided-local-file"
+    }
+  ]
+}

@@ -39,6 +39,16 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
+
+# STT eval generated artifacts
+services/local-ai/eval/audio/**
+!services/local-ai/eval/audio/.gitkeep
+services/local-ai/eval/reports/
+services/local-ai/eval/sources/*.json
+!services/local-ai/eval/sources/*.template.json
+
 # Generated checkpoints can be committed selectively.
 # Keep the folder itself in git, not every transient file.
 .ops/checkpoints/*.tmp

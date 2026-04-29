@@ -107,3 +107,61 @@ services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/run_stt_eval.p
 # Summary only
 services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/run_stt_eval.py --quiet
 ```
+
+## EN/JA 200-set Builder
+
+Target profile per language:
+
+- `synthetic`: 30
+- `human_external`: 40
+- `music_mixed`: 30
+
+Builder script:
+
+```bash
+services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/build_stt_dataset.py --allow-partial
+```
+
+Notes:
+
+- Synthetic clips are generated with `edge-tts`.
+- Human/music clips come from manifests in `services/local-ai/eval/sources/`.
+- If exact target counts are required, remove `--allow-partial` and the build fails when data is missing.
+
+Manifest templates:
+
+- `services/local-ai/eval/sources/human_external_sources.template.json`
+- `services/local-ai/eval/sources/music_sources.template.json`
+
+Copy templates to:
+
+- `services/local-ai/eval/sources/human_external_sources.json`
+- `services/local-ai/eval/sources/music_sources.json`
+
+and fill real sources/transcripts.
+
+## Gate Runner (EN>=85, JA>=75)
+
+```bash
+services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/run_quality_gate.py
+```
+
+This command:
+
+1. runs STT evaluation for all cases
+2. saves a JSON report in `services/local-ai/eval/reports/`
+3. prints gate decision:
+   - PASS => continue tuning current components
+   - FAIL => switch to component replacement phase
+
+## App-side Evaluation Flow
+
+For desktop-side real pipeline checks, run:
+
+1. desktop app (`sorisori-desktop.exe`) or `npm run dev:desktop`
+2. verify sidecar health:
+   - realtime: `http://127.0.0.1:8787/health`
+   - local-ai: `http://127.0.0.1:8789/health`
+3. run STT gate script above against the same local-ai endpoint
+
+This keeps evaluation bound to the same sidecar/runtime stack used by the app.

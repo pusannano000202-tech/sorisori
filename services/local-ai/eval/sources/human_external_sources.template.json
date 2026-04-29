@@ -1,0 +1,27 @@
+{
+  "description": "Human speech clips for STT evaluation. Use legal/public data only.",
+  "entries": [
+    {
+      "id": "en_human_001",
+      "lang": "en",
+      "source_type": "human_external",
+      "expected_text": "Where can I catch the shuttle?",
+      "keywords": ["where", "catch", "shuttle"],
+      "local_path": "raw/en_human_001.wav",
+      "start_sec": 0.0,
+      "duration_sec": 5.0,
+      "license_note": "public-domain-or-permitted"
+    },
+    {
+      "id": "ja_human_001",
+      "lang": "ja",
+      "source_type": "human_external",
+      "expected_text": "今日は何を食べますか",
+      "keywords": ["今日", "何", "食べ"],
+      "source_url": "https://example.com/path/to/ja_human_001.mp3",
+      "start_sec": 1.2,
+      "duration_sec": 5.0,
+      "license_note": "public-dataset-with-license"
+    }
+  ]
+}

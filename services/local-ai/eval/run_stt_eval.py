@@ -24,6 +24,7 @@ import base64
 import json
 import os
 import re
+import sys
 import time
 import unicodedata
 import urllib.error
@@ -53,6 +54,7 @@ EN_STOP = {
 class CaseResult:
     case_id: str
     lang: str
+    source_type: str
     ms: int
     expected: str
     transcript: str
@@ -234,13 +236,25 @@ def _post_transcribe(base_url: str, pcm16_mono_24k: bytes, lang: str, timeout_s:
 
 def _print_result(r: CaseResult) -> None:
     status = "OK" if not r.error else f"ERR({r.error})"
-    print(
-        f"{r.case_id:16} {r.lang:>2} {r.ms:5}ms "
+    _safe_print(
+        f"{r.case_id:16} {r.lang:>2}/{r.source_type:<13} {r.ms:5}ms "
         f"KW {r.keyword_hit:2}/{r.keyword_total:<2} {r.keyword_retention:6.1f}% "
         f"SIM {r.text_similarity:6.1f}%  {status}"
     )
-    print(f"  exp: {r.expected}")
-    print(f"  out: {r.transcript}")
+    _safe_print(f"  exp: {r.expected}")
+    _safe_print(f"  out: {r.transcript}")
+
+
+def _safe_print(text: str) -> None:
+    try:
+        print(text)
+        return
+    except UnicodeEncodeError:
+        pass
+
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    fallback = text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+    print(fallback)
 
 
 def run(
@@ -248,6 +262,10 @@ def run(
     base_url: str,
     timeout_s: float,
     filter_lang: Optional[str],
+    filter_source_type: Optional[str],
+    threshold_en: float,
+    threshold_ja: float,
+    save_path: Optional[str],
     quiet: bool,
 ) -> int:
     if not os.path.exists(corpus_path):
@@ -261,7 +279,10 @@ def run(
     for item in corpus:
         case_id = str(item.get("id", "")).strip() or "(no-id)"
         lang = str(item.get("lang", "")).strip().lower()
+        source_type = str(item.get("source_type", "")).strip().lower() or "unknown"
         if filter_lang and lang != filter_lang:
+            continue
+        if filter_source_type and source_type != filter_source_type:
             continue
         if lang not in {"en", "ja"}:
             continue
@@ -283,6 +304,7 @@ def run(
             row = CaseResult(
                 case_id=case_id,
                 lang=lang,
+                source_type=source_type,
                 ms=ms,
                 expected=expected,
                 transcript=transcript,
@@ -297,6 +319,7 @@ def run(
             row = CaseResult(
                 case_id=case_id,
                 lang=lang,
+                source_type=source_type,
                 ms=ms,
                 expected=expected,
                 transcript="",
@@ -325,8 +348,12 @@ def run(
 
     # Per language
     by_lang: dict[str, list[CaseResult]] = {"en": [], "ja": []}
+    by_source_type: dict[str, list[CaseResult]] = {}
     for r in rows:
         by_lang.setdefault(r.lang, []).append(r)
+        by_source_type.setdefault(r.source_type or "unknown", []).append(r)
+
+    lang_metrics: dict[str, dict[str, float | int]] = {}
 
     print("\n=== STT Eval Summary ===")
     print(f"cases={len(rows)}  weighted_keyword_retention={avg_ret:.2f}%  avg_text_similarity={avg_sim:.2f}%")
@@ -342,18 +369,85 @@ def run(
         lang_ret = (100.0 * lang_hit / lang_total) if lang_total > 0 else 0.0
         lang_sim = sum(x.text_similarity for x in items) / len(items)
         print(f"- {lang}: cases={len(items)} retention={lang_ret:.2f}% similarity={lang_sim:.2f}%")
+        lang_metrics[lang] = {
+            "cases": len(items),
+            "keyword_hit": lang_hit,
+            "keyword_total": lang_total,
+            "retention": lang_ret,
+            "similarity": lang_sim,
+        }
+
+    print("- source_type:")
+    for source_type, items in sorted(by_source_type.items()):
+        src_hit = sum(x.keyword_hit for x in items)
+        src_total = sum(x.keyword_total for x in items)
+        src_ret = (100.0 * src_hit / src_total) if src_total > 0 else 0.0
+        src_sim = sum(x.text_similarity for x in items) / len(items)
+        print(f"  - {source_type}: cases={len(items)} retention={src_ret:.2f}% similarity={src_sim:.2f}%")
 
     if error_rows and len(error_rows) == len(rows):
         print("RESULT: INVALID (all cases errored)")
         return 3
 
-    target = 85.0
-    if avg_ret >= target:
-        print(f"RESULT: PASS (>= {target:.1f}%)")
-        return 0
+    en_ret = float(lang_metrics.get("en", {}).get("retention", 0.0))
+    ja_ret = float(lang_metrics.get("ja", {}).get("retention", 0.0))
+    pass_en = en_ret >= threshold_en if int(lang_metrics.get("en", {}).get("cases", 0)) > 0 else False
+    pass_ja = ja_ret >= threshold_ja if int(lang_metrics.get("ja", {}).get("cases", 0)) > 0 else False
 
-    print(f"RESULT: FAIL (< {target:.1f}%)")
-    return 1
+    result_status = "PASS" if (pass_en and pass_ja) else "FAIL"
+    print(
+        f"gate: EN {en_ret:.2f}% (>= {threshold_en:.2f}) | "
+        f"JA {ja_ret:.2f}% (>= {threshold_ja:.2f})"
+    )
+    print(f"RESULT: {result_status}")
+
+    if save_path:
+        payload = {
+            "status": result_status,
+            "thresholds": {"en": threshold_en, "ja": threshold_ja},
+            "summary": {
+                "cases": len(rows),
+                "weighted_keyword_retention": avg_ret,
+                "avg_text_similarity": avg_sim,
+                "errors": len(error_rows),
+            },
+            "by_lang": lang_metrics,
+            "by_source_type": {
+                k: {
+                    "cases": len(v),
+                    "keyword_hit": sum(x.keyword_hit for x in v),
+                    "keyword_total": sum(x.keyword_total for x in v),
+                    "retention": (100.0 * sum(x.keyword_hit for x in v) / sum(x.keyword_total for x in v))
+                    if sum(x.keyword_total for x in v) > 0
+                    else 0.0,
+                    "similarity": sum(x.text_similarity for x in v) / len(v),
+                }
+                for k, v in by_source_type.items()
+            },
+            "rows": [
+                {
+                    "id": r.case_id,
+                    "lang": r.lang,
+                    "source_type": r.source_type,
+                    "ms": r.ms,
+                    "expected": r.expected,
+                    "transcript": r.transcript,
+                    "keywords": r.keywords,
+                    "keyword_hit": r.keyword_hit,
+                    "keyword_total": r.keyword_total,
+                    "keyword_retention": r.keyword_retention,
+                    "text_similarity": r.text_similarity,
+                    "error": r.error,
+                }
+                for r in rows
+            ],
+        }
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        print(f"saved report: {save_path}")
+
+    return 0 if result_status == "PASS" else 1
 
 
 def main() -> None:
@@ -362,6 +456,15 @@ def main() -> None:
     parser.add_argument("--url", default=DEFAULT_URL, help="local-ai base URL (default: http://127.0.0.1:8789)")
     parser.add_argument("--timeout", type=float, default=60.0, help="HTTP timeout seconds per case")
     parser.add_argument("--filter-lang", choices=["en", "ja"], default=None, help="Evaluate only one language")
+    parser.add_argument(
+        "--filter-source-type",
+        choices=["synthetic", "human_external", "music_mixed", "unknown"],
+        default=None,
+        help="Evaluate only one source_type",
+    )
+    parser.add_argument("--threshold-en", type=float, default=85.0, help="Pass threshold for EN keyword retention")
+    parser.add_argument("--threshold-ja", type=float, default=75.0, help="Pass threshold for JA keyword retention")
+    parser.add_argument("--save", default=None, help="Optional output JSON report path")
     parser.add_argument("--quiet", action="store_true", help="Print summary only")
     args = parser.parse_args()
 
@@ -370,6 +473,10 @@ def main() -> None:
         base_url=args.url,
         timeout_s=args.timeout,
         filter_lang=args.filter_lang,
+        filter_source_type=args.filter_source_type,
+        threshold_en=args.threshold_en,
+        threshold_ja=args.threshold_ja,
+        save_path=args.save,
         quiet=args.quiet,
     )
     raise SystemExit(code)
