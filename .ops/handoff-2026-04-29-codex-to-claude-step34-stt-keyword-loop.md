@@ -65,6 +65,12 @@ User requested STT-first quality work with explicit KPI:
    - STT thresholds
    - model size (consider `small -> medium` for JA if still weak)
 
+## Installer state
+- Sidecars rebuilt after Step 34 changes.
+- Latest installer ready at:
+  - `apps/desktop/src-tauri/target/release/bundle/nsis/SoriSori Desktop_0.1.0_x64-setup.exe`
+  - timestamp observed: `2026-04-29 14:03:35` (local)
+
 ## Safety note
 - Worktree contains many unrelated/untracked files from prior sessions.
 - Do **not** run destructive cleanup (`git clean -fdx`, restore all) blindly.

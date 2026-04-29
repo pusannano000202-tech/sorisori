@@ -55,6 +55,14 @@
   - `weighted keyword retention=100%` (synthetic smoke set)
   - PASS vs 85% target.
 
+## Build artifacts refreshed
+- Rebuilt sidecars:
+  - `apps/desktop/src-tauri/sidecar-bin/sorisori-local-ai-x86_64-pc-windows-msvc.exe`
+  - `apps/desktop/src-tauri/sidecar-bin/sorisori-realtime-x86_64-pc-windows-msvc.exe`
+- Rebuilt installer:
+  - `apps/desktop/src-tauri/target/release/bundle/nsis/SoriSori Desktop_0.1.0_x64-setup.exe`
+  - build timestamp observed: `2026-04-29 14:03:35` (local)
+
 ## Important note
 - This proves eval loop works technically.
 - Real quality must be measured on **real capture audio** (YouTube/dialogue clips from target use-cases), not synthetic TTS-only corpus.
