@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import base64
 import faulthandler
+import json
 import logging
 import os
 import re
 import sys
 import traceback
 import unicodedata
+import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -79,13 +82,24 @@ log = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_SIZE = os.environ.get("WHISPER_MODEL", "base")
+MODEL_SIZE = os.environ.get("WHISPER_MODEL", "small")
 DEVICE = os.environ.get("WHISPER_DEVICE", "auto")
 COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 MODELS_DIR = os.environ.get("MODELS_DIR", os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "sorisori", "models"))
 LOCAL_SOURCE_DIR = os.path.dirname(__file__)
 
 SAMPLE_RATE = 24_000
+try:
+    STT_BEAM_SIZE = int(os.environ.get("LOCAL_AI_STT_BEAM_SIZE", "6"))
+except ValueError:
+    STT_BEAM_SIZE = 6
+if STT_BEAM_SIZE < 1:
+    STT_BEAM_SIZE = 6
+
+STT_VAD_FILTER = os.environ.get("LOCAL_AI_STT_VAD_FILTER", "false").strip().lower() in {"1", "true", "yes", "on"}
+STT_CONDITION_ON_PREVIOUS_TEXT = os.environ.get(
+    "LOCAL_AI_STT_CONDITION_ON_PREVIOUS_TEXT", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 # MarianMT model names
 MODEL_EN_KO = "Helsinki-NLP/opus-mt-tc-big-en-ko"
@@ -107,6 +121,21 @@ ARGOS_PACKS = [
 # Languages that use no spaces between words — use char count for fragment filter
 CJK_LANGS = {"ja", "zh", "ko"}
 
+# Optional LLM-backed translation. When LOCAL_AI_LLM_BACKEND is set to a known
+# backend (currently only "ollama"), /translate tries the LLM first for en→ko
+# and ja→ko, then falls back to Argos/NLLB on timeout or empty output.
+LLM_BACKEND = os.environ.get("LOCAL_AI_LLM_BACKEND", "").strip().lower()
+LLM_URL = os.environ.get("LOCAL_AI_LLM_URL", "http://127.0.0.1:11434").rstrip("/")
+LLM_MODEL = os.environ.get("LOCAL_AI_LLM_MODEL", "qwen2.5:7b-instruct-q4_K_M")
+try:
+    LLM_TIMEOUT_S = float(os.environ.get("LOCAL_AI_LLM_TIMEOUT_S", "7.0"))
+except ValueError:
+    LLM_TIMEOUT_S = 7.0
+try:
+    LLM_NUM_PREDICT = int(os.environ.get("LOCAL_AI_LLM_NUM_PREDICT", "128"))
+except ValueError:
+    LLM_NUM_PREDICT = 128
+
 # ---------------------------------------------------------------------------
 # Global state
 # ---------------------------------------------------------------------------
@@ -126,7 +155,40 @@ _mt_tokenizers: dict[str, object] = {}
 _mt_models: dict[str, object] = {}
 _mt_ready = False
 
+_llm_ready = False
+
 _last_transcript: dict[str, str] = {}
+
+# Drop reason counters exposed via /health for live diagnostic of the language
+# guard, short-fragment filter and hallucination filter.
+_drop_counters: dict[str, object] = {
+    "language_guard": {
+        "total": 0,
+        "en_hangul": 0,
+        "en_non_latin": 0,
+        "ja_hangul": 0,
+        "ja_non_japanese": 0,
+        "translate_locked_hangul": 0,
+    },
+    "short_fragment": 0,
+    "hallucination": 0,
+    "whisper_translate_failed": 0,
+    "llm_empty": 0,
+    "llm_error": 0,
+    "llm_fallback": 0,
+}
+
+
+def _bump_language_guard(reason: str) -> None:
+    bucket = _drop_counters["language_guard"]
+    if reason in bucket:
+        bucket[reason] += 1
+    bucket["total"] += 1
+
+
+def _bump_drop(category: str) -> None:
+    if category in _drop_counters and isinstance(_drop_counters[category], int):
+        _drop_counters[category] += 1
 
 
 def _load_whisper():
@@ -300,12 +362,103 @@ def _load_ja_direct_model():
         log.warning("Japanese direct model load failed: %s", exc)
 
 
+def _probe_llm() -> bool:
+    """Verify the configured LLM backend is reachable and the model is registered.
+    Sets _llm_ready. Safe to call when LLM_BACKEND is empty (no-op)."""
+    global _llm_ready
+    _llm_ready = False
+    if LLM_BACKEND != "ollama":
+        return False
+    try:
+        with urllib.request.urlopen(f"{LLM_URL}/api/tags", timeout=3.0) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        names = {m.get("name") for m in payload.get("models", []) if isinstance(m, dict)}
+        if LLM_MODEL in names:
+            log.info("LLM backend ready: ollama %s @ %s", LLM_MODEL, LLM_URL)
+            _llm_ready = True
+            return True
+        log.warning("LLM backend reachable but model %r not found (have %s)", LLM_MODEL, sorted(names))
+    except Exception as exc:
+        log.warning("LLM backend probe failed (%s @ %s): %s", LLM_BACKEND, LLM_URL, exc)
+    return False
+
+
+def _llm_prompt(text: str, src_lang: str) -> str:
+    src_name = {"en": "English", "ja": "Japanese"}.get(src_lang, src_lang)
+    return (
+        "You are a professional Korean translator for live subtitles. "
+        f"Translate the following {src_name} sentence into natural, conversational Korean. "
+        "Output ONLY the Korean translation. Do not add quotes, explanations, "
+        "romanization, or repeat the original.\n\n"
+        f"{src_name}: {text}\n"
+        "Korean:"
+    )
+
+
+_LLM_STRIP_PREFIXES = ("Korean:", "한국어:", "번역:", "Translation:")
+
+
+def _sanitize_llm_output(raw: str) -> str:
+    if not raw:
+        return ""
+    out = raw.strip()
+    # Some chat models echo the rubric prefix despite the instruction.
+    for p in _LLM_STRIP_PREFIXES:
+        if out.lower().startswith(p.lower()):
+            out = out[len(p):].lstrip()
+    # Strip surrounding quotes the model sometimes adds.
+    if len(out) >= 2 and out[0] in "\"'“‘「『" and out[-1] in "\"'”’」』":
+        out = out[1:-1].strip()
+    # Take the first non-empty line — guards against the model rambling.
+    for line in out.splitlines():
+        line = line.strip()
+        if line:
+            out = line
+            break
+    return out
+
+
+def _translate_with_llm(text: str, src_lang: str, target_lang: str) -> Optional[str]:
+    if not _llm_ready or LLM_BACKEND != "ollama":
+        return None
+    if target_lang != "ko" or src_lang not in {"en", "ja"}:
+        return None
+    body = json.dumps({
+        "model": LLM_MODEL,
+        "prompt": _llm_prompt(text, src_lang),
+        "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": LLM_NUM_PREDICT,
+        },
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{LLM_URL}/api/generate",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=LLM_TIMEOUT_S) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        log.warning("LLM translate error (%s→ko): %s", src_lang, exc)
+        _bump_drop("llm_error")
+        return None
+    out = _sanitize_llm_output(payload.get("response", ""))
+    if not out or not _contains_hangul(out):
+        _bump_drop("llm_empty")
+        return None
+    return out
+
+
 def _load_translation():
     global _mt_ready
     _load_argos()
     _load_ja_direct_model()
     ok_en = _load_mt_model("en", MODEL_EN_KO)
     _mt_ready = ok_en
+    _probe_llm()
 
 
 @asynccontextmanager
@@ -406,19 +559,23 @@ def _apply_language_hint_guard(transcript: str, language_hint: Optional[str]) ->
     if hint == "en":
         if _contains_hangul(normalized):
             log.info("Language hint=en dropped Hangul transcript: %r", normalized[:80])
+            _bump_language_guard("en_hangul")
             return ""
         if LANGUAGE_HINT_MODE == "strict" and not _contains_latin(normalized):
             log.info("Language hint=en strict dropped non-Latin transcript: %r", normalized[:80])
+            _bump_language_guard("en_non_latin")
             return ""
         return normalized
 
     if hint == "ja":
         if _contains_hangul(normalized):
             log.info("Language hint=ja dropped Hangul transcript: %r", normalized[:80])
+            _bump_language_guard("ja_hangul")
             return ""
         if LANGUAGE_HINT_MODE == "strict":
             if not (_contains_japanese_kana(normalized) or _is_cjk(normalized)):
                 log.info("Language hint=ja strict dropped non-Japanese transcript: %r", normalized[:80])
+                _bump_language_guard("ja_non_japanese")
                 return ""
         return normalized
 
@@ -671,11 +828,24 @@ def health():
         "service": "sorisori-local-ai",
         "whisper_model": MODEL_SIZE,
         "whisper_ready": _whisper_model is not None,
-        "translation_ready": _argos_ready or _mt_ready or _ja_direct_ready,
+        "translation_ready": _argos_ready or _mt_ready or _ja_direct_ready or _llm_ready,
         "translation_engines": {
             "argos": _argos_ready,
             "ja_direct": _ja_direct_ready,
             "marian": _mt_ready,
+            "llm": _llm_ready,
+        },
+        "llm": {
+            "backend": LLM_BACKEND,
+            "url": LLM_URL,
+            "model": LLM_MODEL,
+            "ready": _llm_ready,
+            "timeout_s": LLM_TIMEOUT_S,
+        },
+        "stt": {
+            "beam_size": STT_BEAM_SIZE,
+            "vad_filter": STT_VAD_FILTER,
+            "condition_on_previous_text": STT_CONDITION_ON_PREVIOUS_TEXT,
         },
         "ja_translation": {
             "mode": JA_TRANSLATION_MODE,
@@ -688,6 +858,7 @@ def health():
             "ja_direct": ["ja", "ko"] if _ja_direct_ready else [],
             "marian": sorted(_mt_models.keys()),
         },
+        "drops": _drop_counters,
     })
 
 
@@ -730,8 +901,10 @@ def transcribe(req: TranscribeRequest):
         samples,
         language=detected_lang,
         task=task,
-        beam_size=5,
-        vad_filter=True,
+        beam_size=STT_BEAM_SIZE,
+        vad_filter=STT_VAD_FILTER,
+        condition_on_previous_text=STT_CONDITION_ON_PREVIOUS_TEXT,
+        temperature=0.0,
         vad_parameters=dict(min_silence_duration_ms=300, speech_pad_ms=200),
     )
 
@@ -743,6 +916,7 @@ def transcribe(req: TranscribeRequest):
     # the translation failed — drop the transcript to avoid garbage output.
     if use_translate and transcript and _is_cjk(transcript):
         log.info("Whisper translate failed (CJK in output, lang=%s): %r", detected_lang, transcript[:60])
+        _bump_drop("whisper_translate_failed")
         transcript = ""
 
     # Short fragment filter (language-aware)
@@ -750,11 +924,13 @@ def transcribe(req: TranscribeRequest):
     if _is_short_fragment(transcript, short_fragment_lang):
         if transcript:
             log.info("Short fragment dropped: %r", transcript)
+            _bump_drop("short_fragment")
         transcript = ""
 
     # Hallucination filter
     lang_key = detected_lang or "auto"
     if transcript and _is_hallucination(transcript, lang_key):
+        _bump_drop("hallucination")
         transcript = ""
     elif transcript:
         _last_transcript[lang_key] = transcript
@@ -792,10 +968,18 @@ def translate(req: TranslateRequest):
     # In locked English/Japanese sessions, drop obvious Korean transcript bleed-through.
     if src in {"en", "ja"} and _contains_hangul(normalized_text):
         log.info("Dropped Hangul transcript in locked %s source: %r", src, normalized_text[:80])
+        _bump_language_guard("translate_locked_hangul")
         return TranslateResponse(translatedText="")
 
-    if not (_argos_ready or _mt_ready or _ja_direct_ready):
+    if not (_argos_ready or _mt_ready or _ja_direct_ready or _llm_ready):
         raise HTTPException(503, "Translation model not ready.")
+
+    # LLM-first path for en/ja → ko. Falls through to legacy engines on None.
+    if req.target_lang == "ko" and src in {"en", "ja"} and _llm_ready:
+        result = _translate_with_llm(normalized_text, src, req.target_lang)
+        if result is not None:
+            return TranslateResponse(translatedText=result)
+        _bump_drop("llm_fallback")
 
     if src == "ja" and req.target_lang == "ko" and _is_cjk(normalized_text):
         if JA_TRANSLATION_MODE in {"auto", "direct"}:

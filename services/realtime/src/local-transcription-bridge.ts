@@ -22,14 +22,23 @@ interface LocalTranscribeResponse {
   transcript?: string;
 }
 
+function readIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 // PCM16 mono 24kHz: RMS below this value is treated as silence.
-const SILENCE_RMS_THRESHOLD = 80;
+const SILENCE_RMS_THRESHOLD = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_RMS_THRESHOLD", 60);
 // Consecutive silent chunks (~20ms each) before flushing speech buffer.
-const SILENCE_CHUNKS_REQUIRED = 14; // ~280ms of silence
+const SILENCE_CHUNKS_REQUIRED = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_CHUNKS_REQUIRED", 20); // ~400ms
 // Minimum buffered speech chunks before a flush is worthwhile.
-const MIN_SPEECH_CHUNKS = 20; // ~400ms minimum context for Whisper
-// Force flush when this many speech chunks accumulate (~3 seconds max batch).
-const MAX_SPEECH_CHUNKS = 150;
+const MIN_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MIN_SPEECH_CHUNKS", 32); // ~640ms context
+// Force flush when this many speech chunks accumulate.
+const MAX_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MAX_SPEECH_CHUNKS", 180); // ~3.6s
 const TRANSCRIBE_TIMEOUT_MS = 60_000;
 
 function computeRms(pcm16: Buffer): number {
