@@ -100,6 +100,41 @@ STT_VAD_FILTER = os.environ.get("LOCAL_AI_STT_VAD_FILTER", "false").strip().lowe
 STT_CONDITION_ON_PREVIOUS_TEXT = os.environ.get(
     "LOCAL_AI_STT_CONDITION_ON_PREVIOUS_TEXT", "false"
 ).strip().lower() in {"1", "true", "yes", "on"}
+try:
+    STT_NO_SPEECH_THRESHOLD = float(os.environ.get("LOCAL_AI_STT_NO_SPEECH_THRESHOLD", "0.6"))
+except ValueError:
+    STT_NO_SPEECH_THRESHOLD = 0.6
+try:
+    STT_LOG_PROB_THRESHOLD = float(os.environ.get("LOCAL_AI_STT_LOG_PROB_THRESHOLD", "-1.0"))
+except ValueError:
+    STT_LOG_PROB_THRESHOLD = -1.0
+try:
+    STT_COMPRESSION_RATIO_THRESHOLD = float(
+        os.environ.get("LOCAL_AI_STT_COMPRESSION_RATIO_THRESHOLD", "2.4")
+    )
+except ValueError:
+    STT_COMPRESSION_RATIO_THRESHOLD = 2.4
+try:
+    STT_MIN_CJK_CHARS = int(os.environ.get("LOCAL_AI_STT_MIN_CJK_CHARS", "3"))
+except ValueError:
+    STT_MIN_CJK_CHARS = 3
+if STT_MIN_CJK_CHARS < 1:
+    STT_MIN_CJK_CHARS = 3
+try:
+    STT_MIN_LATIN_WORDS = int(os.environ.get("LOCAL_AI_STT_MIN_LATIN_WORDS", "1"))
+except ValueError:
+    STT_MIN_LATIN_WORDS = 1
+if STT_MIN_LATIN_WORDS < 1:
+    STT_MIN_LATIN_WORDS = 1
+
+STT_INITIAL_PROMPT_EN = os.environ.get(
+    "LOCAL_AI_STT_INITIAL_PROMPT_EN",
+    "Transcribe spoken English clearly. Keep natural words and punctuation. Do not output Korean.",
+).strip()
+STT_INITIAL_PROMPT_JA = os.environ.get(
+    "LOCAL_AI_STT_INITIAL_PROMPT_JA",
+    "Transcribe spoken Japanese in Japanese script (hiragana, katakana, kanji). Do not output Korean or romaji.",
+).strip()
 
 # MarianMT model names
 MODEL_EN_KO = "Helsinki-NLP/opus-mt-tc-big-en-ko"
@@ -787,11 +822,20 @@ def _is_short_fragment(text: str, lang: Optional[str]) -> bool:
     if not normalized:
         return True
     if lang in CJK_LANGS or _is_cjk(normalized):
-        # CJK: filter if fewer than 6 characters (excludes punctuation)
+        # CJK: keep short but meaningful utterances by using configurable threshold.
         char_count = sum(1 for c in normalized if not unicodedata.category(c).startswith("P"))
-        return char_count < 6
-    # Space-separated: filter if fewer than 2 words
-    return len(normalized.split()) < 2
+        return char_count < STT_MIN_CJK_CHARS
+    # Space-separated: configurable threshold (default: 1 to keep short cues like "yeah").
+    return len(normalized.split()) < STT_MIN_LATIN_WORDS
+
+
+def _stt_initial_prompt_for_language(language_hint: Optional[str], detected_lang: Optional[str]) -> Optional[str]:
+    lang = (language_hint or detected_lang or "").strip().lower()
+    if lang == "ja" and STT_INITIAL_PROMPT_JA:
+        return STT_INITIAL_PROMPT_JA
+    if lang == "en" and STT_INITIAL_PROMPT_EN:
+        return STT_INITIAL_PROMPT_EN
+    return None
 
 
 def _similarity_ratio(a: str, b: str) -> float:
@@ -846,6 +890,13 @@ def health():
             "beam_size": STT_BEAM_SIZE,
             "vad_filter": STT_VAD_FILTER,
             "condition_on_previous_text": STT_CONDITION_ON_PREVIOUS_TEXT,
+            "no_speech_threshold": STT_NO_SPEECH_THRESHOLD,
+            "log_prob_threshold": STT_LOG_PROB_THRESHOLD,
+            "compression_ratio_threshold": STT_COMPRESSION_RATIO_THRESHOLD,
+            "min_cjk_chars": STT_MIN_CJK_CHARS,
+            "min_latin_words": STT_MIN_LATIN_WORDS,
+            "initial_prompt_en": STT_INITIAL_PROMPT_EN,
+            "initial_prompt_ja": STT_INITIAL_PROMPT_JA,
         },
         "ja_translation": {
             "mode": JA_TRANSLATION_MODE,
@@ -897,15 +948,25 @@ def transcribe(req: TranscribeRequest):
         task = "translate"
         use_translate = True
 
+    transcribe_kwargs = {
+        "language": detected_lang,
+        "task": task,
+        "beam_size": STT_BEAM_SIZE,
+        "vad_filter": STT_VAD_FILTER,
+        "condition_on_previous_text": STT_CONDITION_ON_PREVIOUS_TEXT,
+        "no_speech_threshold": STT_NO_SPEECH_THRESHOLD,
+        "log_prob_threshold": STT_LOG_PROB_THRESHOLD,
+        "compression_ratio_threshold": STT_COMPRESSION_RATIO_THRESHOLD,
+        "temperature": 0.0,
+        "vad_parameters": dict(min_silence_duration_ms=300, speech_pad_ms=200),
+    }
+    initial_prompt = _stt_initial_prompt_for_language(language_hint, detected_lang)
+    if initial_prompt:
+        transcribe_kwargs["initial_prompt"] = initial_prompt
+
     segments, _ = _whisper_model.transcribe(
         samples,
-        language=detected_lang,
-        task=task,
-        beam_size=STT_BEAM_SIZE,
-        vad_filter=STT_VAD_FILTER,
-        condition_on_previous_text=STT_CONDITION_ON_PREVIOUS_TEXT,
-        temperature=0.0,
-        vad_parameters=dict(min_silence_duration_ms=300, speech_pad_ms=200),
+        **transcribe_kwargs,
     )
 
     transcript = "".join(seg.text for seg in segments).strip()

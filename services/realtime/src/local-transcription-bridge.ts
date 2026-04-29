@@ -32,13 +32,13 @@ function readIntEnv(name: string, fallback: number): number {
 }
 
 // PCM16 mono 24kHz: RMS below this value is treated as silence.
-const SILENCE_RMS_THRESHOLD = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_RMS_THRESHOLD", 60);
+const SILENCE_RMS_THRESHOLD = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_RMS_THRESHOLD", 45);
 // Consecutive silent chunks (~20ms each) before flushing speech buffer.
-const SILENCE_CHUNKS_REQUIRED = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_CHUNKS_REQUIRED", 20); // ~400ms
+const SILENCE_CHUNKS_REQUIRED = readIntEnv("LOCAL_AI_BRIDGE_SILENCE_CHUNKS_REQUIRED", 18); // ~360ms
 // Minimum buffered speech chunks before a flush is worthwhile.
-const MIN_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MIN_SPEECH_CHUNKS", 32); // ~640ms context
+const MIN_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MIN_SPEECH_CHUNKS", 12); // ~240ms context
 // Force flush when this many speech chunks accumulate.
-const MAX_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MAX_SPEECH_CHUNKS", 180); // ~3.6s
+const MAX_SPEECH_CHUNKS = readIntEnv("LOCAL_AI_BRIDGE_MAX_SPEECH_CHUNKS", 220); // ~4.4s
 const TRANSCRIBE_TIMEOUT_MS = 60_000;
 
 function computeRms(pcm16: Buffer): number {

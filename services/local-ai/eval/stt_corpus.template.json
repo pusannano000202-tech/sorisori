@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "description": "STT keyword-retention corpus for EN/JA. Copy this file to stt_corpus.json and replace audio_path/expected_text/keywords.",
+  "cases": [
+    {
+      "id": "en_001",
+      "lang": "en",
+      "audio_path": "audio/en_001.wav",
+      "expected_text": "Hi, how are you? Do you like chocolate?",
+      "keywords": ["hi", "how", "you", "like", "chocolate"]
+    },
+    {
+      "id": "en_002",
+      "lang": "en",
+      "audio_path": "audio/en_002.wav",
+      "expected_text": "Where can I catch the shuttle?",
+      "keywords": ["where", "catch", "shuttle"]
+    },
+    {
+      "id": "ja_001",
+      "lang": "ja",
+      "audio_path": "audio/ja_001.wav",
+      "expected_text": "今日は何を食べますか",
+      "keywords": ["今日", "何", "食べ"]
+    },
+    {
+      "id": "ja_002",
+      "lang": "ja",
+      "audio_path": "audio/ja_002.wav",
+      "expected_text": "ただ休んでいます",
+      "keywords": ["休ん", "い"]
+    }
+  ]
+}
