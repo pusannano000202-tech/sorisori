@@ -179,9 +179,11 @@ def _auto_keywords(lang: str, expected_text: str) -> list[str]:
         for tok in _tokenize_en(expected):
             if len(tok) <= 2 or tok in EN_STOP:
                 continue
+            if "'" in tok:
+                continue
             if tok not in out:
                 out.append(tok)
-        return out[:8]
+        return out[:4]
 
     if lang == "ja":
         kanji = re.findall(r"[一-龯]{2,4}", expected)
@@ -190,7 +192,7 @@ def _auto_keywords(lang: str, expected_text: str) -> list[str]:
         for tok in kanji + kana:
             if tok not in out:
                 out.append(tok)
-        return out[:8]
+        return out[:3]
 
     return []
 

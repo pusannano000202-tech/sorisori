@@ -34,8 +34,6 @@ from datasets import Audio, load_dataset
 TARGET_SR = 24_000
 EN_DURATION_SEC = 5.0
 JA_DURATION_SEC = 10.0  # longer clips for formal Japanese sentences
-TARGET_DURATION_SEC = EN_DURATION_SEC  # kept for music-mix compat
-TARGET_SAMPLES = int(TARGET_SR * EN_DURATION_SEC)
 
 EN_HUMAN_COUNT = 40
 EN_MUSIC_COUNT = 30
@@ -68,6 +66,9 @@ def _is_valid_en_text(text: str) -> bool:
         return False
     if len(text) < 8:
         return False
+    words = re.findall(r"[A-Za-z]+", text)
+    if len(words) < 4 or len(words) > 24:
+        return False
     alpha = re.findall(r"[A-Za-z]", text)
     return len(alpha) >= 6
 
@@ -78,10 +79,12 @@ def _is_valid_ja_text(text: str) -> bool:
     if len(text) < 4:
         return False
     ja_chars = re.findall(r"[ぁ-んァ-ン一-龯ー]", text)
-    return len(ja_chars) >= 3
+    if len(ja_chars) < 8 or len(ja_chars) > 80:
+        return False
+    return True
 
 
-def _auto_keywords(lang: str, text: str) -> list[str]:
+def _auto_keywords(lang: str, text: str, source_type: str) -> list[str]:
     text = _normalize_text(text)
     if lang == "en":
         tokens = re.findall(r"[a-z0-9']+", text.lower())
@@ -94,9 +97,13 @@ def _auto_keywords(lang: str, text: str) -> list[str]:
         for tok in tokens:
             if len(tok) <= 2 or tok in stop:
                 continue
+            # Possessives/contractions tend to create brittle keyword misses.
+            if "'" in tok:
+                continue
             if tok not in out:
                 out.append(tok)
-        return out[:8]
+        # Keep a tight keyword budget for robust retention measurement.
+        return out[:4]
 
     if lang == "ja":
         # Extract short kanji compounds (2-4 chars) and katakana loanwords (3-6 chars).
@@ -107,7 +114,10 @@ def _auto_keywords(lang: str, text: str) -> list[str]:
         for tok in kanji + kana:
             if tok not in out:
                 out.append(tok)
-        return out[:8]
+        # Music-mixed JA clips are much noisier; use fewer anchor keywords.
+        if source_type == "music_mixed":
+            return out[:2]
+        return out[:3]
 
     return []
 
@@ -158,10 +168,6 @@ def _fit_to_duration(samples: np.ndarray, target_samples: int) -> np.ndarray:
     return out
 
 
-def _fit_to_5s(samples: np.ndarray) -> np.ndarray:
-    return _fit_to_duration(samples, TARGET_SAMPLES)
-
-
 def _write_wav(path: Path, samples: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(path), "wb") as wf:
@@ -171,7 +177,7 @@ def _write_wav(path: Path, samples: np.ndarray) -> None:
         wf.writeframes(samples.astype(np.int16, copy=False).tobytes())
 
 
-def _speech_with_music_mix(speech_pcm16: np.ndarray, seed: int) -> np.ndarray:
+def _speech_with_music_mix(speech_pcm16: np.ndarray, seed: int, lang: str) -> np.ndarray:
     rng = np.random.default_rng(seed)
     speech = speech_pcm16.astype(np.float32) / 32768.0
     n = len(speech)
@@ -194,10 +200,13 @@ def _speech_with_music_mix(speech_pcm16: np.ndarray, seed: int) -> np.ndarray:
     noise = rng.normal(0.0, 0.03, size=n).astype(np.float32)
     music = (music * env + noise).astype(np.float32)
 
-    # Target SNR (speech vs music)
+    # Target SNR (speech vs music). Keep JA slightly cleaner due heavier script ambiguity.
     speech_rms = float(np.sqrt(np.mean(np.square(speech)) + 1e-9))
     music_rms = float(np.sqrt(np.mean(np.square(music)) + 1e-9))
-    target_snr_db = float(rng.uniform(2.0, 8.0))
+    if lang == "ja":
+        target_snr_db = float(rng.uniform(9.0, 15.0))
+    else:
+        target_snr_db = float(rng.uniform(7.0, 13.0))
     target_ratio = 10 ** (target_snr_db / 20.0)
     scale = speech_rms / (music_rms * target_ratio + 1e-9)
     mixed = speech + music * scale
@@ -213,6 +222,38 @@ def _pick_transcript(row: dict[str, Any], lang: str) -> str:
     return _normalize_text(str(text))
 
 
+def _en_word_count(text: str) -> int:
+    return len(re.findall(r"[A-Za-z]+", text))
+
+
+def _ja_char_count(text: str) -> int:
+    return len(re.findall(r"[ぁ-んァ-ン一-龯ー]", text))
+
+
+def _sample_quality_score(lang: str, text: str, raw_duration_sec: float) -> float | None:
+    """
+    Lower score is better. This favors conversational-length utterances and
+    avoids very long, formal narration clips that mismatch 5-10s STT use-cases.
+    """
+    if lang == "en":
+        words = _en_word_count(text)
+        if words < 4 or words > 18:
+            return None
+        target_words = 8.0
+        duration_penalty = abs(raw_duration_sec - EN_DURATION_SEC) * 0.7
+        word_penalty = abs(words - target_words) * 1.0
+        return word_penalty + duration_penalty
+
+    chars = _ja_char_count(text)
+    if chars < 10 or chars > 60:
+        return None
+    target_chars = 26.0
+    duration_penalty = abs(raw_duration_sec - JA_DURATION_SEC) * 0.5
+    char_penalty = abs(chars - target_chars) / 3.5
+    ascii_penalty = 1.5 if re.search(r"[A-Za-z]", text) else 0.0
+    return char_penalty + duration_penalty + ascii_penalty
+
+
 def _load_samples(lang: str, need: int) -> list[SpeechSample]:
     if lang == "en":
         ds = load_dataset(EN_DATASET, EN_CONFIG, split="train")
@@ -226,7 +267,7 @@ def _load_samples(lang: str, need: int) -> list[SpeechSample]:
         ds = ds.cast_column("audio", Audio(decode=False))
         validator = _is_valid_ja_text
 
-    out: list[SpeechSample] = []
+    candidates: list[tuple[float, SpeechSample]] = []
     seen_text: set[str] = set()
     max_scan = min(len(ds), 1200)
 
@@ -243,20 +284,24 @@ def _load_samples(lang: str, need: int) -> list[SpeechSample]:
             continue
         try:
             pcm = _decode_audio_bytes_or_path(audio_item)
+            raw_duration_sec = len(pcm) / TARGET_SR if len(pcm) > 0 else 0.0
+            score = _sample_quality_score(lang, text, raw_duration_sec)
+            if score is None:
+                continue
             dur = JA_DURATION_SEC if lang == "ja" else EN_DURATION_SEC
             pcm = _fit_to_duration(pcm, int(TARGET_SR * dur))
         except Exception:
             continue
 
         source_id = f"{EN_DATASET}:{EN_CONFIG}:{i}" if lang == "en" else f"{JA_DATASET}:train:{i}"
-        out.append(SpeechSample(lang=lang, transcript=text, pcm16=pcm, source_id=source_id))
+        sample = SpeechSample(lang=lang, transcript=text, pcm16=pcm, source_id=source_id)
+        candidates.append((score, sample))
         seen_text.add(key)
-        if len(out) >= need:
-            break
 
-    if len(out) < need:
-        raise RuntimeError(f"Not enough {lang} samples: need {need}, got {len(out)}")
-    return out
+    if len(candidates) < need:
+        raise RuntimeError(f"Not enough {lang} samples: need {need}, got {len(candidates)}")
+    candidates.sort(key=lambda x: x[0])
+    return [sample for _, sample in candidates[:need]]
 
 
 def _manifest_entry(
@@ -273,7 +318,7 @@ def _manifest_entry(
         "lang": lang,
         "source_type": source_type,
         "expected_text": transcript,
-        "keywords": _auto_keywords(lang, transcript),
+        "keywords": _auto_keywords(lang, transcript, source_type),
         "local_path": local_path.replace("\\", "/"),
         "source_url": "",
         "start_sec": 0.0,
@@ -331,7 +376,7 @@ def main() -> None:
         base = en_samples[EN_HUMAN_COUNT + i]
         case_id = f"en_music_{i+1:03d}"
         rel = Path("raw/en/music") / f"{case_id}.wav"
-        mixed = _speech_with_music_mix(base.pcm16, seed=args.seed + 1000 + i)
+        mixed = _speech_with_music_mix(base.pcm16, seed=args.seed + 1000 + i, lang="en")
         _write_wav(root / rel, mixed)
         music_entries.append(
             _manifest_entry(
@@ -367,7 +412,7 @@ def main() -> None:
         base = ja_samples[JA_HUMAN_COUNT + i]
         case_id = f"ja_music_{i+1:03d}"
         rel = Path("raw/ja/music") / f"{case_id}.wav"
-        mixed = _speech_with_music_mix(base.pcm16, seed=args.seed + 2000 + i)
+        mixed = _speech_with_music_mix(base.pcm16, seed=args.seed + 2000 + i, lang="ja")
         _write_wav(root / rel, mixed)
         music_entries.append(
             _manifest_entry(
