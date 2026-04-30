@@ -129,11 +129,11 @@ if STT_MIN_LATIN_WORDS < 1:
 
 STT_INITIAL_PROMPT_EN = os.environ.get(
     "LOCAL_AI_STT_INITIAL_PROMPT_EN",
-    "Transcribe spoken English clearly. Keep natural words and punctuation. Do not output Korean.",
+    "Transcribe spoken English clearly. Keep natural words and punctuation.",
 ).strip()
 STT_INITIAL_PROMPT_JA = os.environ.get(
     "LOCAL_AI_STT_INITIAL_PROMPT_JA",
-    "Transcribe spoken Japanese in Japanese script (hiragana, katakana, kanji). Do not output Korean or romaji.",
+    "Transcribe spoken Japanese in Japanese script (hiragana, katakana, kanji). Do not use romaji.",
 ).strip()
 
 # MarianMT model names
@@ -972,6 +972,14 @@ def transcribe(req: TranscribeRequest):
     transcript = "".join(seg.text for seg in segments).strip()
     transcript = _normalize_text_for_display(transcript)
     transcript = _apply_language_hint_guard(transcript, language_hint)
+
+    # Prompt-echo filter: discard output that repeats the initial_prompt verbatim.
+    if transcript and initial_prompt:
+        probe = initial_prompt[:20].lower()
+        if transcript.lower().startswith(probe):
+            log.info("Prompt-echo dropped: %r", transcript[:60])
+            _bump_drop("prompt_echo")
+            transcript = ""
 
     # If Whisper was supposed to translate (non-English) but still output CJK chars,
     # the translation failed — drop the transcript to avoid garbage output.

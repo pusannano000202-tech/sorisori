@@ -1,7 +1,7 @@
 # Shared Context
 
 - 프로젝트: 컴퓨터/노트북 등에서 재생되는 외국어 오디오를 실시간 한국어 자막으로 보여주는 웹 + 데스크톱 앱
-- 현재 날짜 기준 문맥: 2026-04-28
+- 현재 날짜 기준 문맥: 2026-04-30
 - 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 
 ## 지금까지 완료
@@ -29,13 +29,17 @@
 
 - Windows MVP 오디오 캡처: `wasapi` (WASAPI loopback)
 - 포맷 변환: `rubato + dasp` (PCM16 / mono / 24kHz)
-- 실시간 전사: faster-whisper (`services/local-ai`, port 8789) — beam_size=5, Silero VAD 활성
-- 번역: Argos Translate 우선 + MarianMT 보조 fallback
-  - 영어: `Argos en→ko` direct가 기본 경로
-  - 일본어: `NLLB direct ja→ko`가 기본 경로 (`LOCAL_AI_JA_TRANSLATION_MODE=auto`)
+- 실시간 전사: faster-whisper (`services/local-ai`, port 8789) — **WHISPER_MODEL=medium**, beam_size=10, Silero VAD 활성
+  - (2026-04-30 step39: small → medium 업그레이드, 한자 숫자 정규화, prompt-echo 필터 추가)
+- 번역: **Ollama LLM 우선** (env로 활성화) + Argos/NLLB fallback + MarianMT 보조
+  - LLM 활성: `LOCAL_AI_LLM_BACKEND=ollama`, `LOCAL_AI_LLM_MODEL=qwen2.5:7b-instruct-q4_K_M`
+  - LLM은 en→ko, ja→ko 모두 첫 시도. 빈 응답/한글 없음/타임아웃 7s 시 자동 fallback
+  - 영어: `Argos en→ko` direct가 LLM 다음 fallback
+  - 일본어: `NLLB direct ja→ko`가 LLM 다음 fallback (`LOCAL_AI_JA_TRANSLATION_MODE=auto`)
   - direct 실패 시 `ja→en→ko` bridge fallback
-  - MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko`는 en→ko fallback으로만 유지
-  - 장문 영어에서는 MarianMT가 깨진 출력을 보여 Argos-first로 복구됨
+  - MarianMT `Helsinki-NLP/opus-mt-tc-big-en-ko`는 en→ko 최후 fallback
+  - 측정 결과 (2026-04-28 step28): 전체 chrF 30.70 → 51.22 (+20.52, 67% 개선),
+    지연 평균 626ms → 1506ms. eval baseline은 `services/local-ai/eval/`
 - 사이드카 3개 (Tauri 자동 기동):
   - `sorisori-local-ai` (PyInstaller, port 8789) — faster-whisper STT + NLLB/Argos/Marian 번역
   - `sorisori-realtime` (pkg node18, port 8787) — WebSocket gateway
@@ -45,11 +49,25 @@
 
 ## 현재 다음 우선순위
 
-1. pipeline CJS 엔트리 가드 수정이 반영된 새 NSIS 설치본 재설치 후 실행 검증 (사용자 환경)
-2. 설치본 `고급 정보 > 사이드카 상태/로그`에서 3개 포트(`8787/8788/8789`) health 정상 여부 확인
-3. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
-4. 개인 노트북 개발환경 세팅 (Node.js 24, Python 3.11, Rust 1.86.0, sidecar 재빌드)
-5. 일본어 direct 품질 검증용 소규모 코퍼스/스모크 평가 추가
+1. **(완료) STT 품질 게이트 최적화 — step39**
+   - 게이트 최종 결과: EN 78.98% (목표 85%), JA 67.77% (목표 75%)
+   - Whisper small → medium 업그레이드, JA clip 5s→10s, 키워드 개선 등 모든 quick-win 완료
+   - 체크포인트: `.ops/checkpoints/2026-04-30-step39-stt-gate-medium-tuning.md`
+
+2. **(다음 작업) STT 품질 게이트 통과 — 잔여 갭 해소**
+   - EN gap: -6.02% (human_external 68.4%가 주 병목)
+   - JA gap: -7.23% (music_mixed 57.6%가 주 병목)
+   - **권장 경로 A**: JA 특화 STT 라우트 (kotoba-whisper 또는 large-v3-JA)
+     → `main.py` lang='ja' 분기에 별도 모델 로드 추가
+   - **권장 경로 B**: large-v3 오프라인 eval → 기준 재설정 (실시간 prod에는 medium 유지)
+   - **대안**: threshold 조정 (EN≥78, JA≥66) — 즉시 PASS, 품질 기준 약화
+
+3. **(진행 중) 번역엔진 LLM 상태**
+   - chrF 51.22 (+67%) — Ollama + Qwen2.5-7B 활성, 사이드카 정상 동작
+   - 라이브 검증 결과 미회수 (사용자 응답 필요)
+
+4. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
+5. pipeline CJS 엔트리 가드 반영 새 NSIS 설치본 실행 검증
 
 ## 지금 주의할 점
 
@@ -66,4 +84,4 @@
 - `services/local-ai/main.py`는 2026-04-28 Step 27에서 언어 고정 힌트(strict/soft), 일본어 direct 우선 경로 보강, 한글 혼입 드롭, short-fragment 완화가 반영되었다.
 - `services/realtime/src/local-transcription-bridge.ts`는 같은 Step 27에서 flush 타이밍을 완화해 문장 조각/누락을 줄이도록 튜닝되었다.
 - 노트북 재개용 종합 handoff는 `.ops/handoff-2026-04-23-codex-to-laptop-github-resume.md`에 있다.
-- 운영 규칙: 토큰 사용량이 93% 이상이면 구현보다 handoff/checkpoint 작성 우선으로 전환한다.
+- 운영 규칙: 토큰 사용량이 **5시간 윈도우 기준 90%** 이상이면 구현 중단하고 즉시 handoff/checkpoint 작성으로 전환한다 (2026-04-28 사용자 지시로 93% → 90%).

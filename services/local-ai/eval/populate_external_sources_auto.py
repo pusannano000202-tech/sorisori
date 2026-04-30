@@ -32,8 +32,10 @@ import numpy as np
 from datasets import Audio, load_dataset
 
 TARGET_SR = 24_000
-TARGET_DURATION_SEC = 5.0
-TARGET_SAMPLES = int(TARGET_SR * TARGET_DURATION_SEC)
+EN_DURATION_SEC = 5.0
+JA_DURATION_SEC = 10.0  # longer clips for formal Japanese sentences
+TARGET_DURATION_SEC = EN_DURATION_SEC  # kept for music-mix compat
+TARGET_SAMPLES = int(TARGET_SR * EN_DURATION_SEC)
 
 EN_HUMAN_COUNT = 40
 EN_MUSIC_COUNT = 30
@@ -97,9 +99,12 @@ def _auto_keywords(lang: str, text: str) -> list[str]:
         return out[:8]
 
     if lang == "ja":
-        toks = re.findall(r"[ぁ-んァ-ン一-龯ー]+", text)
+        # Extract short kanji compounds (2-4 chars) and katakana loanwords (3-6 chars).
+        # Short units survive minor ASR errors better than full-phrase substring matches.
+        kanji = re.findall(r"[一-龯]{2,4}", text)
+        kana = re.findall(r"[ァ-ン]{3,6}", text)
         out: list[str] = []
-        for tok in toks:
+        for tok in kanji + kana:
             if tok not in out:
                 out.append(tok)
         return out[:8]
@@ -142,15 +147,19 @@ def _decode_audio_bytes_or_path(audio_item: dict[str, Any]) -> np.ndarray:
     return np.concatenate(chunks).astype(np.int16, copy=False)
 
 
-def _fit_to_5s(samples: np.ndarray) -> np.ndarray:
+def _fit_to_duration(samples: np.ndarray, target_samples: int) -> np.ndarray:
     if samples.size == 0:
-        return np.zeros(TARGET_SAMPLES, dtype=np.int16)
-    if len(samples) >= TARGET_SAMPLES:
-        start = max(0, (len(samples) - TARGET_SAMPLES) // 2)
-        return samples[start:start + TARGET_SAMPLES].astype(np.int16, copy=False)
-    out = np.zeros(TARGET_SAMPLES, dtype=np.int16)
+        return np.zeros(target_samples, dtype=np.int16)
+    if len(samples) >= target_samples:
+        # Take from the beginning so the start of the sentence is preserved.
+        return samples[:target_samples].astype(np.int16, copy=False)
+    out = np.zeros(target_samples, dtype=np.int16)
     out[: len(samples)] = samples
     return out
+
+
+def _fit_to_5s(samples: np.ndarray) -> np.ndarray:
+    return _fit_to_duration(samples, TARGET_SAMPLES)
 
 
 def _write_wav(path: Path, samples: np.ndarray) -> None:
@@ -234,7 +243,8 @@ def _load_samples(lang: str, need: int) -> list[SpeechSample]:
             continue
         try:
             pcm = _decode_audio_bytes_or_path(audio_item)
-            pcm = _fit_to_5s(pcm)
+            dur = JA_DURATION_SEC if lang == "ja" else EN_DURATION_SEC
+            pcm = _fit_to_duration(pcm, int(TARGET_SR * dur))
         except Exception:
             continue
 
@@ -267,7 +277,7 @@ def _manifest_entry(
         "local_path": local_path.replace("\\", "/"),
         "source_url": "",
         "start_sec": 0.0,
-        "duration_sec": 5.0,
+        "duration_sec": JA_DURATION_SEC if lang == "ja" else EN_DURATION_SEC,
         "license_note": f"HF dataset sample: {source_id}",
         "status": "auto_filled",
     }

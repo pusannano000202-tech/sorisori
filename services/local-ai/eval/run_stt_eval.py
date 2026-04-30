@@ -116,6 +116,18 @@ def _ensure_keywords(case: dict[str, Any]) -> list[str]:
     return keys
 
 
+_KANJI_NUM_MAP = str.maketrans("〇一二三四五六七八九十百千万億兆", "0123456789102000")
+_KANJI_NUM_TABLE = {"〇": "0", "一": "1", "二": "2", "三": "3", "四": "4",
+                    "五": "5", "六": "6", "七": "7", "八": "8", "九": "9",
+                    "十": "10", "百": "100", "千": "1000", "万": "10000"}
+
+
+def _normalize_ja_numbers(text: str) -> str:
+    for kanji, arabic in _KANJI_NUM_TABLE.items():
+        text = text.replace(kanji, arabic)
+    return text
+
+
 def _keyword_retention(lang: str, transcript: str, keywords: list[str]) -> tuple[int, int, float]:
     if not keywords:
         return 0, 0, 0.0
@@ -130,10 +142,11 @@ def _keyword_retention(lang: str, transcript: str, keywords: list[str]) -> tuple
             if kw.lower() in token_set:
                 hit += 1
     else:
-        # JA: substring match on normalized text; keyword list should contain meaningful words.
-        lowered = normalized.lower()
+        # JA: substring match. Normalize kanji numerals to Arabic for robustness.
+        lowered = _normalize_ja_numbers(normalized.lower())
         for kw in keywords:
-            if kw.lower() in lowered:
+            kw_norm = _normalize_ja_numbers(kw.lower())
+            if kw_norm in lowered:
                 hit += 1
 
     total = len(keywords)

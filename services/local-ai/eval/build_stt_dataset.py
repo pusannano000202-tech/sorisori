@@ -184,7 +184,12 @@ def _auto_keywords(lang: str, expected_text: str) -> list[str]:
         return out[:8]
 
     if lang == "ja":
-        out = _tokenize_ja_like(expected)
+        kanji = re.findall(r"[一-龯]{2,4}", expected)
+        kana = re.findall(r"[ァ-ン]{3,6}", expected)
+        out: list[str] = []
+        for tok in kanji + kana:
+            if tok not in out:
+                out.append(tok)
         return out[:8]
 
     return []
