@@ -140,6 +140,18 @@ Copy templates to:
 
 and fill real sources/transcripts.
 
+Auto-generate 140 scaffold slots first:
+
+```bash
+services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/generate_external_manifests.py --overwrite
+```
+
+This creates:
+- `services/local-ai/eval/sources/human_external_sources.json` (EN 40 + JA 40)
+- `services/local-ai/eval/sources/music_sources.json` (EN 30 + JA 30)
+
+Then replace each `TODO_REPLACE_TRANSCRIPT_*` and `local_path` with real clips.
+
 ## Gate Runner (EN>=85, JA>=75)
 
 ```bash
