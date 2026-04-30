@@ -152,6 +152,21 @@ This creates:
 
 Then replace each `TODO_REPLACE_TRANSCRIPT_*` and `local_path` with real clips.
 
+Auto-fill with public human speech + generated music mix (one-shot):
+
+```bash
+services/local-ai/.venv/Scripts/python.exe services/local-ai/eval/populate_external_sources_auto.py
+```
+
+What this does:
+- EN human 40: from `PolyAI/minds14` (`en-US`)
+- JA human 40: from `shunyalabs/japanese-speech-dataset`
+- EN/JA music 30 each: speech clips mixed with generated background music
+
+Why generated music:
+- avoids copyright risk from commercial songs/J-pop/Pop clips
+- keeps a reproducible and legal stress-test set for STT robustness
+
 ## Gate Runner (EN>=85, JA>=75)
 
 ```bash
