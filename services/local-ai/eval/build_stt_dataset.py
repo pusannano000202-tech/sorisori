@@ -48,6 +48,10 @@ DEFAULT_SYNTHETIC_COUNTS = {"en": 30, "ja": 30}
 DEFAULT_HUMAN_COUNTS = {"en": 40, "ja": 40}
 DEFAULT_MUSIC_COUNTS = {"en": 30, "ja": 30}
 
+JA_GENERIC_KEYWORD_STOP = {
+    "最近", "最初", "唯一", "部分", "場合", "今日", "明日", "今回", "去年",
+}
+
 
 EN_SYNTHETIC_TEXTS = [
     "Hi, how are you?",
@@ -172,7 +176,63 @@ def _tokenize_ja_like(text: str) -> list[str]:
     return dedup
 
 
-def _auto_keywords(lang: str, expected_text: str) -> list[str]:
+def _ja_keyword_score(token: str) -> float:
+    if re.search(r"\d", token) and re.search(r"[%％]", token):
+        return 120.0
+    if re.search(r"\d", token):
+        return 112.0
+    if re.fullmatch(r"[ァ-ン]{3,8}", token):
+        return 95.0
+    if re.fullmatch(r"[A-Za-z]{3,12}", token):
+        return 93.0
+    if re.fullmatch(r"[一-龯]{2,3}", token):
+        return 82.0
+    if re.fullmatch(r"[一-龯]{4}", token):
+        return 76.0
+    return 60.0
+
+
+def _select_ja_keywords(expected: str, source_type: str) -> list[str]:
+    candidates: list[str] = []
+
+    # 1) Numeric anchors (especially percent/years/ranks) survive ASR drift well.
+    for tok in re.findall(r"\d+(?:\.\d+)?(?:[%％]|年|月|日|位|人|回|時間|分|度)?", expected):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if tok[-1].isdigit():
+            continue
+        candidates.append(tok)
+
+    # 2) Loanwords and brand-like chunks.
+    candidates.extend(re.findall(r"[ァ-ン]{3,8}", expected))
+    candidates.extend(re.findall(r"[A-Za-z]{3,12}", expected))
+
+    # 3) CJK content anchors.
+    candidates.extend(re.findall(r"[一-龯]{2,4}", expected))
+
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for token in candidates:
+        token = token.strip()
+        if not token:
+            continue
+        if token in JA_GENERIC_KEYWORD_STOP:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        dedup.append(token)
+
+    ranked = sorted(
+        enumerate(dedup),
+        key=lambda pair: (-_ja_keyword_score(pair[1]), pair[0]),
+    )
+    limit = 2 if source_type == SOURCE_MUSIC_MIXED else 3
+    return [dedup[idx] for idx, _ in ranked[:limit]]
+
+
+def _auto_keywords(lang: str, expected_text: str, source_type: str = SOURCE_HUMAN_EXTERNAL) -> list[str]:
     expected = _normalize_text(expected_text)
     if lang == "en":
         out: list[str] = []
@@ -186,13 +246,7 @@ def _auto_keywords(lang: str, expected_text: str) -> list[str]:
         return out[:4]
 
     if lang == "ja":
-        kanji = re.findall(r"[一-龯]{2,4}", expected)
-        kana = re.findall(r"[ァ-ン]{3,6}", expected)
-        out: list[str] = []
-        for tok in kanji + kana:
-            if tok not in out:
-                out.append(tok)
-        return out[:3]
+        return _select_ja_keywords(expected, source_type)
 
     return []
 
@@ -295,12 +349,17 @@ def _load_entries(path: Path) -> list[ExternalEntry]:
         expected = _normalize_text(str(item.get("expected_text", item.get("text", ""))))
         if not expected:
             continue
-        raw_keywords = item.get("keywords")
-        keywords = []
-        if isinstance(raw_keywords, list):
-            keywords = [_normalize_text(str(x)) for x in raw_keywords if _normalize_text(str(x))]
-        if not keywords:
-            keywords = _auto_keywords(lang, expected)
+        if lang == "ja":
+            # Recompute JA keywords with robust policy so katakana/loanword anchors
+            # are always reflected, even if manifest used an older keyword version.
+            keywords = _auto_keywords(lang, expected, source_type)
+        else:
+            raw_keywords = item.get("keywords")
+            keywords = []
+            if isinstance(raw_keywords, list):
+                keywords = [_normalize_text(str(x)) for x in raw_keywords if _normalize_text(str(x))]
+            if not keywords:
+                keywords = _auto_keywords(lang, expected, source_type)
         out.append(
             ExternalEntry(
                 id=str(item.get("id", "")).strip() or f"{source_type}_{lang}_{len(out)+1:03d}",
@@ -408,7 +467,7 @@ def build_dataset(
         for case_id, lang, text, abs_path in synthetic_jobs:
             voice = voice_en if lang == "en" else voice_ja
             await _generate_synthetic_audio(abs_path, text, voice)
-            keywords = _auto_keywords(lang, text)
+            keywords = _auto_keywords(lang, text, SOURCE_SYNTHETIC)
             cases.append(
                 _to_case_dict(
                     case_id=case_id,

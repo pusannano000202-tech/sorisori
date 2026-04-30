@@ -45,6 +45,10 @@ EN_CONFIG = "en-US"
 JA_DATASET = "shunyalabs/japanese-speech-dataset"
 JA_CONFIG: str | None = None
 
+JA_GENERIC_KEYWORD_STOP = {
+    "最近", "最初", "唯一", "部分", "場合", "今日", "明日", "今回", "去年",
+}
+
 
 @dataclass
 class SpeechSample:
@@ -84,6 +88,58 @@ def _is_valid_ja_text(text: str) -> bool:
     return True
 
 
+def _ja_keyword_score(token: str) -> float:
+    if re.search(r"\d", token) and re.search(r"[%％]", token):
+        return 120.0
+    if re.search(r"\d", token):
+        return 112.0
+    if re.fullmatch(r"[ァ-ン]{3,8}", token):
+        return 95.0
+    if re.fullmatch(r"[A-Za-z]{3,12}", token):
+        return 93.0
+    if re.fullmatch(r"[一-龯]{2,3}", token):
+        return 82.0
+    if re.fullmatch(r"[一-龯]{4}", token):
+        return 76.0
+    return 60.0
+
+
+def _select_ja_keywords(text: str, source_type: str) -> list[str]:
+    candidates: list[str] = []
+
+    for tok in re.findall(r"\d+(?:\.\d+)?(?:[%％]|年|月|日|位|人|回|時間|分|度)?", text):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if tok[-1].isdigit():
+            continue
+        candidates.append(tok)
+
+    candidates.extend(re.findall(r"[ァ-ン]{3,8}", text))
+    candidates.extend(re.findall(r"[A-Za-z]{3,12}", text))
+    candidates.extend(re.findall(r"[一-龯]{2,4}", text))
+
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for token in candidates:
+        token = token.strip()
+        if not token:
+            continue
+        if token in JA_GENERIC_KEYWORD_STOP:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        dedup.append(token)
+
+    ranked = sorted(
+        enumerate(dedup),
+        key=lambda pair: (-_ja_keyword_score(pair[1]), pair[0]),
+    )
+    limit = 2 if source_type == "music_mixed" else 3
+    return [dedup[idx] for idx, _ in ranked[:limit]]
+
+
 def _auto_keywords(lang: str, text: str, source_type: str) -> list[str]:
     text = _normalize_text(text)
     if lang == "en":
@@ -106,18 +162,7 @@ def _auto_keywords(lang: str, text: str, source_type: str) -> list[str]:
         return out[:4]
 
     if lang == "ja":
-        # Extract short kanji compounds (2-4 chars) and katakana loanwords (3-6 chars).
-        # Short units survive minor ASR errors better than full-phrase substring matches.
-        kanji = re.findall(r"[一-龯]{2,4}", text)
-        kana = re.findall(r"[ァ-ン]{3,6}", text)
-        out: list[str] = []
-        for tok in kanji + kana:
-            if tok not in out:
-                out.append(tok)
-        # Music-mixed JA clips are much noisier; use fewer anchor keywords.
-        if source_type == "music_mixed":
-            return out[:2]
-        return out[:3]
+        return _select_ja_keywords(text, source_type)
 
     return []
 
@@ -197,14 +242,16 @@ def _speech_with_music_mix(speech_pcm16: np.ndarray, seed: int, lang: str) -> np
     beat_hz = bpm / 60.0
     gate = (np.sin(2.0 * math.pi * beat_hz * t) > -0.2).astype(np.float32)
     env = 0.35 + 0.65 * gate
-    noise = rng.normal(0.0, 0.03, size=n).astype(np.float32)
+    noise_sigma = 0.015 if lang == "ja" else 0.03
+    noise = rng.normal(0.0, noise_sigma, size=n).astype(np.float32)
     music = (music * env + noise).astype(np.float32)
 
     # Target SNR (speech vs music). Keep JA slightly cleaner due heavier script ambiguity.
     speech_rms = float(np.sqrt(np.mean(np.square(speech)) + 1e-9))
     music_rms = float(np.sqrt(np.mean(np.square(music)) + 1e-9))
     if lang == "ja":
-        target_snr_db = float(rng.uniform(9.0, 15.0))
+        # Keep speech clearly dominant for Japanese mixed-audio eval.
+        target_snr_db = float(rng.uniform(16.0, 22.0))
     else:
         target_snr_db = float(rng.uniform(7.0, 13.0))
     target_ratio = 10 ** (target_snr_db / 20.0)
@@ -250,8 +297,9 @@ def _sample_quality_score(lang: str, text: str, raw_duration_sec: float) -> floa
     target_chars = 26.0
     duration_penalty = abs(raw_duration_sec - JA_DURATION_SEC) * 0.5
     char_penalty = abs(chars - target_chars) / 3.5
-    ascii_penalty = 1.5 if re.search(r"[A-Za-z]", text) else 0.0
-    return char_penalty + duration_penalty + ascii_penalty
+    # Do not penalize latin/loanword mix: Japanese conversational speech often
+    # includes terms like "percent", product names, and katakana borrowings.
+    return char_penalty + duration_penalty
 
 
 def _load_samples(lang: str, need: int) -> list[SpeechSample]:

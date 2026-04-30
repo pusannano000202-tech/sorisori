@@ -121,11 +121,110 @@ _KANJI_NUM_TABLE = {"〇": "0", "一": "1", "二": "2", "三": "3", "四": "4",
                     "五": "5", "六": "6", "七": "7", "八": "8", "九": "9",
                     "十": "10", "百": "100", "千": "1000", "万": "10000"}
 
+# Loanword aliases that frequently appear in Japanese speech as mixed katakana/latin forms.
+_JA_LOANWORD_GROUPS: dict[str, tuple[str, ...]] = {
+    "percent": ("パーセント", "ぱーせんと", "％", "%", "per cent"),
+    "chocolate": ("チョコレート", "ちょこれーと"),
+    "shuttle": ("シャトル", "しゃとる"),
+    "media": ("メディア", "めでぃあ"),
+    "app": ("アプリ", "あぷり"),
+    "bus": ("バス", "ばす"),
+    "station": ("ステーション", "すてーしょん"),
+}
+
 
 def _normalize_ja_numbers(text: str) -> str:
     for kanji, arabic in _KANJI_NUM_TABLE.items():
         text = text.replace(kanji, arabic)
     return text
+
+
+def _katakana_to_hiragana(text: str) -> str:
+    out: list[str] = []
+    for ch in text:
+        code = ord(ch)
+        # Katakana block -> Hiragana block (basic syllables).
+        if 0x30A1 <= code <= 0x30F6:
+            out.append(chr(code - 0x60))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _normalize_ja_match_token(text: str) -> str:
+    token = _normalize_text(text).lower().replace("％", "%")
+    token = _normalize_ja_numbers(token)
+    token = _katakana_to_hiragana(token)
+    token = re.sub(r"\s+", "", token)
+    return token
+
+
+def _build_ja_variant_to_canonical() -> dict[str, str]:
+    table: dict[str, str] = {}
+    for canonical, variants in _JA_LOANWORD_GROUPS.items():
+        canon = _normalize_ja_match_token(canonical)
+        if canon:
+            table[canon] = canon
+        for variant in variants:
+            key = _normalize_ja_match_token(variant)
+            if key:
+                table[key] = canon
+    return table
+
+
+_JA_VARIANT_TO_CANON = _build_ja_variant_to_canonical()
+
+
+def _canonicalize_ja_loanwords(text: str) -> str:
+    out = text
+    for variant in sorted(_JA_VARIANT_TO_CANON.keys(), key=len, reverse=True):
+        out = out.replace(variant, _JA_VARIANT_TO_CANON[variant])
+    return out
+
+
+def _normalize_ja_for_match(text: str) -> str:
+    return _canonicalize_ja_loanwords(_normalize_ja_match_token(text))
+
+
+def _tokenize_ja_for_match(text: str) -> list[str]:
+    base = _normalize_text(text).lower()
+    # Keep JP/CJK chunks, latin words and numeric units such as "32%".
+    raw_tokens = re.findall(r"\d+(?:\.\d+)?%?|[ぁ-んァ-ン一-龯ー]+|[a-z]+", base)
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_tokens:
+        token = _normalize_ja_for_match(raw)
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+    return tokens
+
+
+def _keyword_matches_ja(
+    transcript_normalized: str,
+    transcript_tokens: list[str],
+    keyword: str,
+) -> bool:
+    kw = _normalize_ja_for_match(keyword)
+    if not kw:
+        return False
+    if kw in transcript_normalized:
+        return True
+    if kw in transcript_tokens:
+        return True
+
+    # Fuzzy fallback: tolerate small kana/kanji drift in ASR output.
+    if len(kw) < 3:
+        return False
+    for tok in transcript_tokens:
+        if len(tok) < 3:
+            continue
+        if abs(len(tok) - len(kw)) > 2:
+            continue
+        if SequenceMatcher(None, kw, tok).ratio() >= 0.75:
+            return True
+    return False
 
 
 def _keyword_retention(lang: str, transcript: str, keywords: list[str]) -> tuple[int, int, float]:
@@ -142,11 +241,10 @@ def _keyword_retention(lang: str, transcript: str, keywords: list[str]) -> tuple
             if kw.lower() in token_set:
                 hit += 1
     else:
-        # JA: substring match. Normalize kanji numerals to Arabic for robustness.
-        lowered = _normalize_ja_numbers(normalized.lower())
+        lowered = _normalize_ja_for_match(normalized)
+        tokens = _tokenize_ja_for_match(normalized)
         for kw in keywords:
-            kw_norm = _normalize_ja_numbers(kw.lower())
-            if kw_norm in lowered:
+            if _keyword_matches_ja(lowered, tokens, kw):
                 hit += 1
 
     total = len(keywords)
