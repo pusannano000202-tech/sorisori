@@ -49,11 +49,12 @@
 
 ## 현재 다음 우선순위
 
-1. **(완료) STT 품질 게이트 PASS — step40/step41**
-   - **게이트 결과: EN 90.30 (≥85) ✅ / JA 79.80 (≥75) ✅**
-   - 세부: EN human_external 88.61 / EN music_mixed 85.34 / JA human_external 82.61 / JA music_mixed 69.49
-   - 체크포인트: `.ops/checkpoints/2026-04-30-step41-ja-loanword-normalization-and-gate.md`
-   - 처리된 handoff: `step40-gate-pass`, `step41-ja-loanword-followup`
+1. **(완료) STT 품질 게이트 PASS — step43**
+   - **게이트 결과: EN 90.30 (≥85) ✅ / JA 86.36 (≥75) ✅**
+   - 세부: EN 90.30 / JA human_external 87.91 / JA music_mixed 84.00
+   - 누적 개선: JA music_mixed 57.6 → 69.49 → 79.66 → **84.00**
+   - 체크포인트: `.ops/checkpoints/2026-05-01-step43-ja-audio-preprocess.md`
+   - 처리된 handoff: step40/41/42/43
 
 2. **(다음 작업) 라이브 캡처 30분 검증**
    - 유튜브 회화/음악혼합 30분 재생 → 자막 품질 육안 확인

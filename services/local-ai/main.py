@@ -900,6 +900,32 @@ def _stt_initial_prompt_for_language(language_hint: Optional[str], detected_lang
     return None
 
 
+def _preprocess_ja_audio(samples: np.ndarray) -> np.ndarray:
+    """High-pass + pre-emphasis + RMS normalize for JA music-mixed STT input.
+    Numpy-only (no scipy). Applied only on the JA model path."""
+    if len(samples) < 64:
+        return samples
+
+    # High-pass via FFT: smooth taper 0–80 Hz → 0, 80–120 Hz → ramp up, >120 Hz → 1
+    X = np.fft.rfft(samples)
+    freqs = np.fft.rfftfreq(len(samples), 1.0 / SAMPLE_RATE)
+    mask = np.where(freqs < 80.0, 0.0,
+                    np.where(freqs < 120.0, (freqs - 80.0) / 40.0, 1.0))
+    hp = np.fft.irfft(X * mask, len(samples))
+
+    # Pre-emphasis: boosts consonant frequencies → clearer STT on noisy audio
+    pe = np.empty_like(hp)
+    pe[0] = hp[0]
+    pe[1:] = hp[1:] - 0.97 * hp[:-1]
+
+    # RMS normalize to –20 dBFS (≈ 0.1 linear)
+    rms = float(np.sqrt(np.mean(pe ** 2)))
+    if rms > 1e-6:
+        pe = np.clip(pe * (0.1 / rms), -1.0, 1.0)
+
+    return pe.astype(np.float32)
+
+
 def _similarity_ratio(a: str, b: str) -> float:
     if not a or not b:
         return 0.0
@@ -1039,6 +1065,7 @@ def transcribe(req: TranscribeRequest):
 
     if using_ja_model:
         log.debug("Using JA-specific STT model=%s", MODEL_SIZE_JA)
+        samples = _preprocess_ja_audio(samples)
 
     segments, _ = whisper_model.transcribe(
         samples,
