@@ -1,7 +1,7 @@
 # Shared Context
 
 - 프로젝트: 컴퓨터/노트북 등에서 재생되는 외국어 오디오를 실시간 한국어 자막으로 보여주는 웹 + 데스크톱 앱
-- 현재 날짜 기준 문맥: 2026-04-30
+- 현재 날짜 기준 문맥: 2026-05-01
 - 기준 문서: `docs/PRD.md`, `docs/TRD.md`
 
 ## 지금까지 완료
@@ -49,25 +49,24 @@
 
 ## 현재 다음 우선순위
 
-1. **(완료) STT 품질 게이트 최적화 — step39**
-   - 게이트 최종 결과: EN 78.98% (목표 85%), JA 67.77% (목표 75%)
-   - Whisper small → medium 업그레이드, JA clip 5s→10s, 키워드 개선 등 모든 quick-win 완료
-   - 체크포인트: `.ops/checkpoints/2026-04-30-step39-stt-gate-medium-tuning.md`
+1. **(완료) STT 품질 게이트 PASS — step40/step41**
+   - **게이트 결과: EN 90.30 (≥85) ✅ / JA 79.80 (≥75) ✅**
+   - 세부: EN human_external 88.61 / EN music_mixed 85.34 / JA human_external 82.61 / JA music_mixed 69.49
+   - 체크포인트: `.ops/checkpoints/2026-04-30-step41-ja-loanword-normalization-and-gate.md`
+   - 처리된 handoff: `step40-gate-pass`, `step41-ja-loanword-followup`
 
-2. **(다음 작업) STT 품질 게이트 통과 — 잔여 갭 해소**
-   - EN gap: -6.02% (human_external 68.4%가 주 병목)
-   - JA gap: -7.23% (music_mixed 57.6%가 주 병목)
-   - **권장 경로 A**: JA 특화 STT 라우트 (kotoba-whisper 또는 large-v3-JA)
-     → `main.py` lang='ja' 분기에 별도 모델 로드 추가
-   - **권장 경로 B**: large-v3 오프라인 eval → 기준 재설정 (실시간 prod에는 medium 유지)
-   - **대안**: threshold 조정 (EN≥78, JA≥66) — 즉시 PASS, 품질 기준 약화
+2. **(다음 작업) 라이브 캡처 30분 검증**
+   - 유튜브 회화/음악혼합 30분 재생 → 자막 품질 육안 확인
+   - Codex step40 권장 사항
 
-3. **(진행 중) 번역엔진 LLM 상태**
-   - chrF 51.22 (+67%) — Ollama + Qwen2.5-7B 활성, 사이드카 정상 동작
-   - 라이브 검증 결과 미회수 (사용자 응답 필요)
+3. **(선택) JA music_mixed 추가 개선 (현재 69.49 → 목표 85)**
+   - **경로 A**: JA 전용 large-v3 라우트 (`WHISPER_MODEL_JA=large-v3`, main.py 분기)
+   - **경로 B**: 노이즈 제거 전처리 (music_mixed 경로 한정, 글로벌 아님)
+   - 현재 게이트 목표(≥75) 는 통과 상태이므로 우선순위 낮음
 
-4. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
-5. pipeline CJS 엔트리 가드 반영 새 NSIS 설치본 실행 검증
+4. **(보류) worst-case 회귀셋 분리 — 최악 케이스 20개 추출**
+5. GitHub remote 설정 및 push (사용자가 레포 URL 제공 필요)
+6. pipeline CJS 엔트리 가드 반영 새 NSIS 설치본 실행 검증
 
 ## 지금 주의할 점
 
