@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import sys
+import threading
 import traceback
 import unicodedata
 import urllib.error
@@ -82,7 +83,12 @@ log = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_SIZE = os.environ.get("WHISPER_MODEL", "small")
+MODEL_SIZE_DEFAULT = os.environ.get("WHISPER_MODEL", "small")
+MODEL_SIZE_JA = (
+    os.environ.get("LOCAL_AI_STT_MODEL_JA")
+    or os.environ.get("WHISPER_MODEL_JA")
+    or ""
+).strip()
 DEVICE = os.environ.get("WHISPER_DEVICE", "auto")
 COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 MODELS_DIR = os.environ.get("MODELS_DIR", os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "sorisori", "models"))
@@ -95,6 +101,12 @@ except ValueError:
     STT_BEAM_SIZE = 6
 if STT_BEAM_SIZE < 1:
     STT_BEAM_SIZE = 6
+try:
+    STT_BEAM_SIZE_JA = int(os.environ.get("LOCAL_AI_STT_BEAM_SIZE_JA", str(STT_BEAM_SIZE)))
+except ValueError:
+    STT_BEAM_SIZE_JA = STT_BEAM_SIZE
+if STT_BEAM_SIZE_JA < 1:
+    STT_BEAM_SIZE_JA = STT_BEAM_SIZE
 
 STT_VAD_FILTER = os.environ.get("LOCAL_AI_STT_VAD_FILTER", "false").strip().lower() in {"1", "true", "yes", "on"}
 STT_CONDITION_ON_PREVIOUS_TEXT = os.environ.get(
@@ -176,6 +188,9 @@ except ValueError:
 # ---------------------------------------------------------------------------
 
 _whisper_model = None
+_whisper_model_ja = None
+_whisper_load_lock = threading.Lock()
+_whisper_ja_load_error: str = ""
 
 # Translation models: keyed by source lang code
 _argos_languages: dict[str, object] = {}
@@ -226,8 +241,28 @@ def _bump_drop(category: str) -> None:
         _drop_counters[category] += 1
 
 
+def _resolve_whisper_device() -> str:
+    device = DEVICE
+    if device == "auto":
+        try:
+            import torch  # type: ignore[import-untyped]
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            device = "cpu"
+    return device
+
+
+def _load_whisper_model(model_size: str, device: str):
+    from faster_whisper import WhisperModel  # type: ignore[import-untyped]
+
+    log.info("Loading faster-whisper model=%s device=%s compute_type=%s", model_size, device, COMPUTE_TYPE)
+    model = WhisperModel(model_size, device=device, compute_type=COMPUTE_TYPE, download_root=MODELS_DIR)
+    log.info("faster-whisper model loaded: %s", model_size)
+    return model
+
+
 def _load_whisper():
-    global _whisper_model
+    global _whisper_model, _whisper_model_ja, _whisper_ja_load_error
     sys.stderr.write("[boot] _load_whisper: importing ctranslate2\n"); sys.stderr.flush()
     import ctranslate2  # noqa: F401
     sys.stderr.write(f"[boot] _load_whisper: ctranslate2 OK ver={ctranslate2.__version__}\n"); sys.stderr.flush()
@@ -238,20 +273,47 @@ def _load_whisper():
     import onnxruntime  # noqa: F401
     sys.stderr.write(f"[boot] _load_whisper: onnxruntime OK ver={onnxruntime.__version__}\n"); sys.stderr.flush()
     sys.stderr.write("[boot] _load_whisper: importing faster_whisper\n"); sys.stderr.flush()
-    from faster_whisper import WhisperModel  # type: ignore[import-untyped]
     sys.stderr.write("[boot] _load_whisper: faster_whisper OK\n"); sys.stderr.flush()
+    device = _resolve_whisper_device()
+    _whisper_model = _load_whisper_model(MODEL_SIZE_DEFAULT, device)
+    _whisper_ja_load_error = ""
+    _whisper_model_ja = None
 
-    device = DEVICE
-    if device == "auto":
+    # If JA model is same as default, just reuse the same model object.
+    if MODEL_SIZE_JA and MODEL_SIZE_JA == MODEL_SIZE_DEFAULT:
+        _whisper_model_ja = _whisper_model
+        log.info("JA STT model reuses default whisper model: %s", MODEL_SIZE_DEFAULT)
+
+
+def _ensure_whisper_ja_model():
+    global _whisper_model_ja, _whisper_ja_load_error
+    if not MODEL_SIZE_JA:
+        return _whisper_model
+    if MODEL_SIZE_JA == MODEL_SIZE_DEFAULT:
+        return _whisper_model
+    if _whisper_model_ja is not None:
+        return _whisper_model_ja
+
+    with _whisper_load_lock:
+        if _whisper_model_ja is not None:
+            return _whisper_model_ja
         try:
-            import torch  # type: ignore[import-untyped]
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        except ImportError:
-            device = "cpu"
+            device = _resolve_whisper_device()
+            _whisper_model_ja = _load_whisper_model(MODEL_SIZE_JA, device)
+            _whisper_ja_load_error = ""
+            return _whisper_model_ja
+        except Exception as exc:
+            _whisper_ja_load_error = str(exc)
+            log.warning("Failed to load JA-specific STT model=%s. Falling back to default. error=%s", MODEL_SIZE_JA, exc)
+            return _whisper_model
 
-    log.info("Loading faster-whisper model=%s device=%s compute_type=%s", MODEL_SIZE, device, COMPUTE_TYPE)
-    _whisper_model = WhisperModel(MODEL_SIZE, device=device, compute_type=COMPUTE_TYPE, download_root=MODELS_DIR)
-    log.info("faster-whisper model loaded.")
+
+def _pick_whisper_model(language_hint: Optional[str], detected_lang: Optional[str]):
+    lang = (language_hint or detected_lang or "").strip().lower()
+    if lang == "ja" and MODEL_SIZE_JA:
+        model = _ensure_whisper_ja_model()
+        return model, model is _whisper_model_ja and _whisper_model_ja is not None
+    return _whisper_model, False
 
 
 def _load_mt_model(lang_code: str, model_name: str) -> bool:
@@ -870,8 +932,11 @@ def health():
     return JSONResponse({
         "status": "ok",
         "service": "sorisori-local-ai",
-        "whisper_model": MODEL_SIZE,
+        "whisper_model": MODEL_SIZE_DEFAULT,
+        "whisper_model_ja": MODEL_SIZE_JA or MODEL_SIZE_DEFAULT,
+        "whisper_ja_enabled": bool(MODEL_SIZE_JA),
         "whisper_ready": _whisper_model is not None,
+        "whisper_ja_ready": (_whisper_model_ja is not None) if MODEL_SIZE_JA else True,
         "translation_ready": _argos_ready or _mt_ready or _ja_direct_ready or _llm_ready,
         "translation_engines": {
             "argos": _argos_ready,
@@ -887,7 +952,10 @@ def health():
             "timeout_s": LLM_TIMEOUT_S,
         },
         "stt": {
+            "model_default": MODEL_SIZE_DEFAULT,
+            "model_ja": MODEL_SIZE_JA or MODEL_SIZE_DEFAULT,
             "beam_size": STT_BEAM_SIZE,
+            "beam_size_ja": STT_BEAM_SIZE_JA,
             "vad_filter": STT_VAD_FILTER,
             "condition_on_previous_text": STT_CONDITION_ON_PREVIOUS_TEXT,
             "no_speech_threshold": STT_NO_SPEECH_THRESHOLD,
@@ -897,6 +965,7 @@ def health():
             "min_latin_words": STT_MIN_LATIN_WORDS,
             "initial_prompt_en": STT_INITIAL_PROMPT_EN,
             "initial_prompt_ja": STT_INITIAL_PROMPT_JA,
+            "ja_model_load_error": _whisper_ja_load_error,
         },
         "ja_translation": {
             "mode": JA_TRANSLATION_MODE,
@@ -948,10 +1017,14 @@ def transcribe(req: TranscribeRequest):
         task = "translate"
         use_translate = True
 
+    whisper_model, using_ja_model = _pick_whisper_model(language_hint, detected_lang)
+    if whisper_model is None:
+        raise HTTPException(503, "Whisper model not loaded yet.")
+
     transcribe_kwargs = {
         "language": detected_lang,
         "task": task,
-        "beam_size": STT_BEAM_SIZE,
+        "beam_size": STT_BEAM_SIZE_JA if detected_lang == "ja" else STT_BEAM_SIZE,
         "vad_filter": STT_VAD_FILTER,
         "condition_on_previous_text": STT_CONDITION_ON_PREVIOUS_TEXT,
         "no_speech_threshold": STT_NO_SPEECH_THRESHOLD,
@@ -964,7 +1037,10 @@ def transcribe(req: TranscribeRequest):
     if initial_prompt:
         transcribe_kwargs["initial_prompt"] = initial_prompt
 
-    segments, _ = _whisper_model.transcribe(
+    if using_ja_model:
+        log.debug("Using JA-specific STT model=%s", MODEL_SIZE_JA)
+
+    segments, _ = whisper_model.transcribe(
         samples,
         **transcribe_kwargs,
     )
