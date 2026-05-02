@@ -499,34 +499,81 @@ fn start_sidecars(
     log.push(format!("realtime  = {realtime_exe:?} exists={}", realtime_exe.exists()));
     log.push(format!("pipeline  = {pipeline_exe:?} exists={}", pipeline_exe.exists()));
 
-    // local-ai (Python/faster-whisper + optional Ollama LLM translate path).
-    // LLM env vars are always set; the sidecar's _probe_llm() is tolerant of
-    // Ollama being absent (falls through to Argos/NLLB silently).
+    // local-ai: prefer Python venv directly over PyInstaller bundle to avoid
+    // ctranslate2/torch/onnxruntime DLL conflicts in the onefile bundle.
+    // Derive project root as exe_dir/../../../../../.. (6 levels up from target/release).
     if should_spawn_sidecar(8789, "local-ai", log) {
-        match sidecar_command(&local_ai_exe)
-            .env("LOCAL_AI_HOST", "127.0.0.1")
-            .env("LOCAL_AI_PORT", "8789")
-            .env("LOCAL_AI_LLM_BACKEND", "ollama")
-            .env("LOCAL_AI_LLM_MODEL", "qwen2.5:7b-instruct-q4_K_M")
-            .env("LOCAL_AI_LLM_URL", "http://127.0.0.1:11434")
-            .env("WHISPER_MODEL", "medium")
-            .env("LOCAL_AI_STT_MODEL_JA", "large-v3")
-            .env("LOCAL_AI_STT_BEAM_SIZE", "10")
-            .env("LOCAL_AI_STT_BEAM_SIZE_JA", "14")
-            .env("LOCAL_AI_STT_VAD_FILTER", "false")
-            .env("LOCAL_AI_STT_CONDITION_ON_PREVIOUS_TEXT", "false")
-            .env("LOCAL_AI_STT_NO_SPEECH_THRESHOLD", "0.6")
-            .env("LOCAL_AI_STT_LOG_PROB_THRESHOLD", "-1.0")
-            .env("LOCAL_AI_STT_COMPRESSION_RATIO_THRESHOLD", "2.4")
-            .env("LOCAL_AI_STT_MIN_CJK_CHARS", "3")
-            .env("LOCAL_AI_STT_MIN_LATIN_WORDS", "1")
-            .env("PYTHONUNBUFFERED", "1")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
+        // resource_dir = .../apps/desktop/src-tauri/target/release
+        // Navigate 5 levels up to reach project root.
+        let project_root = resource_dir
+            .parent()                             // target/
+            .and_then(|p| p.parent())             // src-tauri/
+            .and_then(|p| p.parent())             // desktop/
+            .and_then(|p| p.parent())             // apps/
+            .and_then(|p| p.parent())             // project root
+            .map(|p| p.to_path_buf());
+
+        let python_cmd: Option<(std::path::PathBuf, std::path::PathBuf)> =
+            project_root.as_ref().and_then(|root| {
+                let py = root.join("services").join("local-ai").join(".venv")
+                    .join("Scripts").join("python.exe");
+                let script = root.join("services").join("local-ai").join("main.py");
+                if py.exists() && script.exists() {
+                    // Strip \\?\ verbatim prefix so Python can accept the path as a CLI argument.
+                    let strip_unc = |p: std::path::PathBuf| -> std::path::PathBuf {
+                        match p.to_str() {
+                            Some(s) if s.starts_with("\\\\?\\") => {
+                                std::path::PathBuf::from(&s[4..])
+                            }
+                            _ => p,
+                        }
+                    };
+                    Some((strip_unc(py), strip_unc(script)))
+                } else {
+                    None
+                }
+            });
+
+        let local_ai_envs = [
+            ("LOCAL_AI_HOST", "127.0.0.1"),
+            ("LOCAL_AI_PORT", "8789"),
+            ("LOCAL_AI_LLM_BACKEND", "ollama"),
+            ("LOCAL_AI_LLM_MODEL", "qwen2.5:7b-instruct-q4_K_M"),
+            ("LOCAL_AI_LLM_URL", "http://127.0.0.1:11434"),
+            ("WHISPER_MODEL", "medium"),
+            ("LOCAL_AI_STT_MODEL_JA", "large-v3"),
+            ("LOCAL_AI_STT_BEAM_SIZE", "5"),
+            ("LOCAL_AI_STT_BEAM_SIZE_JA", "8"),
+            ("LOCAL_AI_STT_VAD_FILTER", "false"),
+            ("LOCAL_AI_STT_CONDITION_ON_PREVIOUS_TEXT", "false"),
+            ("LOCAL_AI_STT_NO_SPEECH_THRESHOLD", "0.6"),
+            ("LOCAL_AI_STT_LOG_PROB_THRESHOLD", "-1.0"),
+            ("LOCAL_AI_STT_COMPRESSION_RATIO_THRESHOLD", "2.4"),
+            ("LOCAL_AI_STT_MIN_CJK_CHARS", "3"),
+            ("LOCAL_AI_STT_MIN_LATIN_WORDS", "1"),
+            ("LOCAL_AI_LLM_TIMEOUT_S", "4"),
+            ("PYTHONUNBUFFERED", "1"),
+        ];
+
+        let spawn_result = if let Some((py, script)) = python_cmd {
+            log.push(format!("local-ai: using Python venv {py:?}"));
+            let mut cmd = Command::new(&py);
+            cmd.arg(&script);
+            for (k, v) in &local_ai_envs { cmd.env(k, v); }
+            cmd.stdout(Stdio::null()).stderr(Stdio::piped()).spawn()
+        } else {
+            log.push("local-ai: venv not found, falling back to PyInstaller bundle".to_string());
+            let mut cmd = sidecar_command(&local_ai_exe);
+            for (k, v) in &local_ai_envs { cmd.env(k, v); }
+            cmd.stdout(Stdio::null()).stderr(Stdio::piped()).spawn()
+        };
+
+        match spawn_result {
             Ok(mut child) => {
                 log.push("local-ai spawned OK".to_string());
+                if let Some(stderr) = child.stderr.take() {
+                    spawn_stderr_reader(app.clone(), "local-ai", stderr);
+                }
                 if let Err(msg) = ensure_child_stays_up("local-ai", &mut child, 1400, log) {
                     log.push(msg.clone());
                     return Err(msg.into());
@@ -548,9 +595,9 @@ fn start_sidecars(
             .env("REALTIME_PORT", "8787")
             .env("LOCAL_AI_URL", "http://127.0.0.1:8789")
             .env("LOCAL_AI_BRIDGE_SILENCE_RMS_THRESHOLD", "45")
-            .env("LOCAL_AI_BRIDGE_SILENCE_CHUNKS_REQUIRED", "18")
+            .env("LOCAL_AI_BRIDGE_SILENCE_CHUNKS_REQUIRED", "10")
             .env("LOCAL_AI_BRIDGE_MIN_SPEECH_CHUNKS", "12")
-            .env("LOCAL_AI_BRIDGE_MAX_SPEECH_CHUNKS", "220")
+            .env("LOCAL_AI_BRIDGE_MAX_SPEECH_CHUNKS", "100")
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()

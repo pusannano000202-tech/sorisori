@@ -70,6 +70,8 @@ except BaseException:
     traceback.print_exc(file=sys.stderr); sys.stderr.flush()
     raise
 
+import time
+
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -1010,6 +1012,8 @@ def health():
 
 @app.post("/transcribe", response_model=TranscribeResponse)
 def transcribe(req: TranscribeRequest):
+    t0 = time.perf_counter()
+
     if _whisper_model is None:
         raise HTTPException(503, "Whisper model not loaded yet.")
 
@@ -1022,13 +1026,16 @@ def transcribe(req: TranscribeRequest):
         return TranscribeResponse(transcript="", translated_to_english=False)
 
     samples = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+    audio_sec = len(samples) / 24000.0
 
     language_hint = req.language.strip().lower() if req.language else None
+    t_lang_start = time.perf_counter()
     if language_hint:
         detected_lang = language_hint
     else:
         _, probe = _whisper_model.transcribe(samples, language=None, beam_size=1, vad_filter=False)
         detected_lang = probe.language if probe else "en"
+    t_lang_ms = (time.perf_counter() - t_lang_start) * 1000
 
     # When language is explicitly selected, keep that language path fixed.
     if language_hint:
@@ -1067,10 +1074,12 @@ def transcribe(req: TranscribeRequest):
         log.debug("Using JA-specific STT model=%s", MODEL_SIZE_JA)
         samples = _preprocess_ja_audio(samples)
 
+    t_stt_start = time.perf_counter()
     segments, _ = whisper_model.transcribe(
         samples,
         **transcribe_kwargs,
     )
+    t_stt_ms = (time.perf_counter() - t_stt_start) * 1000
 
     transcript = "".join(seg.text for seg in segments).strip()
     transcript = _normalize_text_for_display(transcript)
@@ -1107,6 +1116,14 @@ def transcribe(req: TranscribeRequest):
     elif transcript:
         _last_transcript[lang_key] = transcript
 
+    t_total_ms = (time.perf_counter() - t0) * 1000
+    log.info(
+        "[timing] transcribe total=%.0fms  lang_detect=%.0fms  stt=%.0fms  audio=%.2fs  lang=%s  beam=%d  result=%r",
+        t_total_ms, t_lang_ms, t_stt_ms, audio_sec, detected_lang,
+        STT_BEAM_SIZE_JA if detected_lang == "ja" else STT_BEAM_SIZE,
+        transcript[:40] if transcript else "",
+    )
+
     return TranscribeResponse(transcript=transcript, language=detected_lang, translated_to_english=use_translate)
 
 
@@ -1127,6 +1144,7 @@ def _marian_translate(text: str, src_lang: str) -> Optional[str]:
 
 @app.post("/translate", response_model=TranslateResponse)
 def translate(req: TranslateRequest):
+    t0_tr = time.perf_counter()
     normalized_text = _normalize_text_for_display(req.text)
     if not normalized_text:
         return TranslateResponse(translatedText="")
@@ -1148,21 +1166,30 @@ def translate(req: TranslateRequest):
 
     # LLM-first path for en/ja → ko. Falls through to legacy engines on None.
     if req.target_lang == "ko" and src in {"en", "ja"} and _llm_ready:
+        t_llm = time.perf_counter()
         result = _translate_with_llm(normalized_text, src, req.target_lang)
+        t_llm_ms = (time.perf_counter() - t_llm) * 1000
         if result is not None:
+            log.info("[timing] translate total=%.0fms  method=llm  src=%s  llm=%.0fms", (time.perf_counter() - t0_tr) * 1000, src, t_llm_ms)
             return TranslateResponse(translatedText=result)
+        log.info("[timing] translate llm_miss=%.0fms  src=%s  fallback→next", t_llm_ms, src)
         _bump_drop("llm_fallback")
 
     if src == "ja" and req.target_lang == "ko" and _is_cjk(normalized_text):
         if JA_TRANSLATION_MODE in {"auto", "direct"}:
+            t_nllb = time.perf_counter()
             result = _translate_ja_direct_in_chunks(normalized_text)
+            t_nllb_ms = (time.perf_counter() - t_nllb) * 1000
             if result is not None:
+                log.info("[timing] translate total=%.0fms  method=nllb  src=ja  nllb=%.0fms", (time.perf_counter() - t0_tr) * 1000, t_nllb_ms)
                 return TranslateResponse(translatedText=result)
             if JA_TRANSLATION_MODE == "direct":
                 raise HTTPException(422, "Direct ja->ko translation failed.")
 
+        t_argos = time.perf_counter()
         result = _translate_with_argos(normalized_text, "ja", req.target_lang)
         if result is not None:
+            log.info("[timing] translate total=%.0fms  method=argos  src=ja  argos=%.0fms", (time.perf_counter() - t0_tr) * 1000, (time.perf_counter() - t_argos) * 1000)
             return TranslateResponse(translatedText=result)
 
         raise HTTPException(422, "No ja->ko translation path available.")
@@ -1176,13 +1203,17 @@ def translate(req: TranslateRequest):
             candidate_sources.append("en")
 
     for candidate_src in dict.fromkeys(candidate_sources):
+        t_argos = time.perf_counter()
         result = _translate_with_argos(normalized_text, candidate_src, req.target_lang)
         if result is not None:
+            log.info("[timing] translate total=%.0fms  method=argos  src=%s  argos=%.0fms", (time.perf_counter() - t0_tr) * 1000, candidate_src, (time.perf_counter() - t_argos) * 1000)
             return TranslateResponse(translatedText=result)
 
     for candidate_src in dict.fromkeys(candidate_sources):
+        t_mt = time.perf_counter()
         result = _translate_in_chunks(normalized_text, candidate_src)
         if result is not None:
+            log.info("[timing] translate total=%.0fms  method=marian  src=%s  marian=%.0fms", (time.perf_counter() - t0_tr) * 1000, candidate_src, (time.perf_counter() - t_mt) * 1000)
             return TranslateResponse(translatedText=result)
 
     raise HTTPException(422, f"No translation path from '{src}' to '{req.target_lang}'.")

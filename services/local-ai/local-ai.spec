@@ -29,8 +29,15 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
+    runtime_hooks=["runtime_hook_stub_torch.py"],
+    excludes=[
+        "torch",
+        "torchvision",
+        "torchaudio",
+        "tensorflow",
+        "keras",
+        "triton",
+    ],
     noarchive=False,
     optimize=0,
 )
