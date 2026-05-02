@@ -50,6 +50,7 @@
 ## 현재 다음 우선순위
 
 1. **(완료) STT 품질 게이트 PASS — step43**
+   - step44 (2026-05-02): 지연 개선 + PyInstaller DLL 수정 + 타이밍 로그 추가
    - **게이트 결과: EN 90.30 (≥85) ✅ / JA 86.36 (≥75) ✅**
    - 세부: EN 90.30 / JA human_external 87.91 / JA music_mixed 84.00
    - 누적 개선: JA music_mixed 57.6 → 69.49 → 79.66 → **84.00**

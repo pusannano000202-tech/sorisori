@@ -1,0 +1,244 @@
+[boot] python=3.12.10 cwd=C:\Users\user6\Desktop\웹사이트 만들기,컴퓨터에서 나오는 소리를받아서 한국어로 변환하는 서비스
+[boot] importing ctranslate2 early
+[boot] ctranslate2 OK ver=4.7.1
+INFO:     Started server process [19684]
+INFO:     Waiting for application startup.
+[boot] lifespan: entering
+[boot] lifespan: about to call _load_whisper
+[boot] _load_whisper: importing ctranslate2
+[boot] _load_whisper: ctranslate2 OK ver=4.7.1
+[boot] _load_whisper: importing tokenizers
+[boot] _load_whisper: tokenizers OK
+[boot] _load_whisper: importing onnxruntime
+[boot] _load_whisper: onnxruntime OK ver=1.24.4
+[boot] _load_whisper: importing faster_whisper
+[boot] _load_whisper: faster_whisper OK
+2026-05-01 00:57:57,916 [local-ai] INFO Loading faster-whisper model=medium device=cpu compute_type=int8
+2026-05-01 00:57:58,326 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-medium/revision/main "HTTP/1.1 200 OK"
+2026-05-01 00:58:00,305 [local-ai] INFO faster-whisper model loaded: medium
+[boot] lifespan: _load_whisper returned
+2026-05-01 00:58:00,429 [local-ai] INFO Argos installed languages: en, ja, ko
+2026-05-01 00:58:00,430 [local-ai] INFO Argos translation ready.
+2026-05-01 00:58:01,708 [local-ai] INFO Loading Japanese direct model=facebook/nllb-200-distilled-600M source=C:\Users\user6\AppData\Roaming\sorisori\models\nllb\models--facebook--nllb-200-distilled-600M\snapshots\f8d333a098d19b4fd9a8b18f94170487ad3f821d mode=auto local_only=False
+Loading weights:   0%|          | 0/512 [00:00<?, ?it/s]Loading weights: 100%|##########| 512/512 [00:00<00:00, 85302.23it/s]
+2026-05-01 00:58:03,025 [local-ai] INFO Japanese direct model loaded.
+2026-05-01 00:58:03,036 [local-ai] INFO Loading MarianMT en model=Helsinki-NLP/opus-mt-tc-big-en-ko
+2026-05-01 00:58:03,244 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 00:58:03,255 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 00:58:03,473 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Helsinki-NLP/opus-mt-tc-big-en-ko/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 00:58:03,690 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Helsinki-NLP/opus-mt-tc-big-en-ko/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 00:58:04,002 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 00:58:04,023 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/config.json "HTTP/1.1 200 OK"
+2026-05-01 00:58:04,244 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights: 100%|##########| 254/254 [00:00<00:00, 11043.36it/s]
+2026-05-01 00:58:06,664 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/generation_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 00:58:06,676 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/generation_config.json "HTTP/1.1 200 OK"
+2026-05-01 00:58:06,681 [local-ai] INFO MarianMT en→ko loaded.
+2026-05-01 00:58:06,733 [local-ai] INFO LLM backend ready: ollama qwen2.5:7b-instruct-q4_K_M @ http://127.0.0.1:11434
+[boot] lifespan: _load_translation returned
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8799 (Press CTRL+C to quit)
+2026-05-01 00:58:17,856 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:22,045 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:25,224 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:28,146 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:31,120 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:34,112 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:37,234 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:40,289 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:43,338 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:46,364 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:49,453 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:52,417 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:55,389 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:58:58,335 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:01,385 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:04,360 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:07,444 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:10,386 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:13,412 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:16,429 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:19,584 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:22,557 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:25,562 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:28,600 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:31,608 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:34,538 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:37,521 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:40,489 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:43,448 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:46,400 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:49,340 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:52,302 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:55,300 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 00:59:58,373 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:01,366 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:04,502 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:07,520 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:10,530 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:15,268 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:19,788 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:24,617 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:29,047 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:33,324 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:37,693 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:41,892 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:45,876 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:49,472 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:52,544 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:55,495 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:00:58,444 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:01,436 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:04,402 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:07,342 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:10,298 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:13,207 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:16,279 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:19,382 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:22,396 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:25,372 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:28,732 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:31,740 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:34,661 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:37,656 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:40,620 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:43,645 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:46,696 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:49,641 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:52,684 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:55,727 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:01:58,686 [local-ai] INFO Processing audio with duration 00:07.500
+2026-05-01 01:02:01,792 [local-ai] INFO Processing audio with duration 00:03.384
+2026-05-01 01:02:04,659 [local-ai] INFO Processing audio with duration 00:03.132
+2026-05-01 01:02:07,520 [local-ai] INFO Processing audio with duration 00:03.564
+2026-05-01 01:02:10,414 [local-ai] INFO Processing audio with duration 00:03.384
+2026-05-01 01:02:13,342 [local-ai] INFO Processing audio with duration 00:04.176
+2026-05-01 01:02:16,349 [local-ai] INFO Processing audio with duration 00:03.816
+2026-05-01 01:02:19,259 [local-ai] INFO Processing audio with duration 00:03.636
+2026-05-01 01:02:22,176 [local-ai] INFO Processing audio with duration 00:03.492
+2026-05-01 01:02:25,131 [local-ai] INFO Processing audio with duration 00:04.212
+2026-05-01 01:02:28,120 [local-ai] INFO Processing audio with duration 00:03.996
+2026-05-01 01:02:31,053 [local-ai] INFO Processing audio with duration 00:04.212
+2026-05-01 01:02:33,985 [local-ai] INFO Processing audio with duration 00:03.852
+2026-05-01 01:02:36,868 [local-ai] INFO Processing audio with duration 00:04.032
+2026-05-01 01:02:39,765 [local-ai] INFO Processing audio with duration 00:04.320
+2026-05-01 01:02:42,725 [local-ai] INFO Processing audio with duration 00:04.176
+2026-05-01 01:02:45,606 [local-ai] INFO Processing audio with duration 00:03.780
+2026-05-01 01:02:48,524 [local-ai] INFO Processing audio with duration 00:03.852
+2026-05-01 01:02:51,537 [local-ai] INFO Processing audio with duration 00:04.032
+2026-05-01 01:02:54,587 [local-ai] INFO Processing audio with duration 00:03.924
+2026-05-01 01:02:57,592 [local-ai] INFO Processing audio with duration 00:03.996
+2026-05-01 01:03:00,539 [local-ai] INFO Processing audio with duration 00:04.680
+2026-05-01 01:03:03,466 [local-ai] INFO Processing audio with duration 00:03.996
+2026-05-01 01:03:06,354 [local-ai] INFO Processing audio with duration 00:03.924
+2026-05-01 01:03:09,290 [local-ai] INFO Processing audio with duration 00:03.564
+2026-05-01 01:03:12,231 [local-ai] INFO Processing audio with duration 00:03.312
+2026-05-01 01:03:15,195 [local-ai] INFO Processing audio with duration 00:03.780
+2026-05-01 01:03:19,215 [local-ai] INFO Processing audio with duration 00:04.356
+2026-05-01 01:03:23,385 [local-ai] INFO Processing audio with duration 00:04.536
+2026-05-01 01:03:27,961 [local-ai] INFO Processing audio with duration 00:04.284
+2026-05-01 01:03:32,261 [local-ai] INFO Processing audio with duration 00:04.104
+2026-05-01 01:03:36,478 [local-ai] INFO Loading faster-whisper model=large-v3 device=cpu compute_type=int8
+2026-05-01 01:03:36,766 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/revision/main "HTTP/1.1 200 OK"
+2026-05-01 01:03:41,443 [local-ai] INFO faster-whisper model loaded: large-v3
+2026-05-01 01:03:41,443 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:03:50,008 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:03:56,585 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:03,171 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:09,691 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:18,403 [local-ai] INFO Language hint=ja strict dropped non-Japanese transcript: '2016.2016.2016.2016.2016.2016.2016.2016.2016.2016.2016.2016.2016.2016.'
+2026-05-01 01:04:18,420 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:24,756 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:30,771 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:37,289 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:43,306 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:49,722 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:04:55,846 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:02,209 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:08,959 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:15,293 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:21,739 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:28,191 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:34,789 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:41,461 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:47,716 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:05:53,905 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:00,802 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:06,876 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:14,021 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:24,332 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:33,160 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:39,655 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:46,135 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:52,664 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:06:58,978 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:05,527 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:11,811 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:18,745 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:25,642 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:32,150 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:40,086 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:50,059 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:07:57,119 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:03,439 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:10,041 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:16,248 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:22,169 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:28,343 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:34,774 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:41,056 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:47,705 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:08:54,263 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:00,269 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:06,766 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:13,440 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:19,798 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:26,372 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:32,906 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:39,078 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:45,593 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:09:54,515 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:02,219 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:08,875 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:15,109 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:21,008 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:27,556 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:34,133 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:40,067 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:46,205 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:52,482 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:10:59,022 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:11:05,347 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:11:11,799 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:11:18,055 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:11:24,727 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 01:11:31,330 [local-ai] INFO Processing audio with duration 00:05.328
+2026-05-01 01:11:36,249 [local-ai] INFO Processing audio with duration 00:03.780
+2026-05-01 01:11:41,343 [local-ai] INFO Processing audio with duration 00:04.500
+2026-05-01 01:11:46,839 [local-ai] INFO Processing audio with duration 00:03.240
+2026-05-01 01:11:51,726 [local-ai] INFO Processing audio with duration 00:04.572
+2026-05-01 01:11:56,813 [local-ai] INFO Processing audio with duration 00:04.212
+2026-05-01 01:12:01,957 [local-ai] INFO Processing audio with duration 00:04.788
+2026-05-01 01:12:07,150 [local-ai] INFO Processing audio with duration 00:04.284
+2026-05-01 01:12:12,386 [local-ai] INFO Processing audio with duration 00:04.032
+2026-05-01 01:12:17,593 [local-ai] INFO Processing audio with duration 00:04.968
+2026-05-01 01:12:23,188 [local-ai] INFO Processing audio with duration 00:05.436
+2026-05-01 01:12:28,587 [local-ai] INFO Processing audio with duration 00:05.400
+2026-05-01 01:12:33,783 [local-ai] INFO Processing audio with duration 00:04.572
+2026-05-01 01:12:39,113 [local-ai] INFO Processing audio with duration 00:04.500
+2026-05-01 01:12:44,239 [local-ai] INFO Processing audio with duration 00:04.824
+2026-05-01 01:12:50,975 [local-ai] INFO Processing audio with duration 00:04.212
+2026-05-01 01:12:58,203 [local-ai] INFO Processing audio with duration 00:04.896
+2026-05-01 01:13:05,808 [local-ai] INFO Processing audio with duration 00:03.924
+2026-05-01 01:13:12,865 [local-ai] INFO Processing audio with duration 00:04.608
+2026-05-01 01:13:19,837 [local-ai] INFO Processing audio with duration 00:04.536
+2026-05-01 01:13:27,101 [local-ai] INFO Processing audio with duration 00:04.536
+2026-05-01 01:13:33,741 [local-ai] INFO Processing audio with duration 00:05.256
+2026-05-01 01:13:40,583 [local-ai] INFO Processing audio with duration 00:04.032
+2026-05-01 01:13:47,474 [local-ai] INFO Processing audio with duration 00:04.392
+2026-05-01 01:13:55,215 [local-ai] INFO Processing audio with duration 00:04.320
+2026-05-01 01:14:01,693 [local-ai] INFO Processing audio with duration 00:04.752
+2026-05-01 01:14:08,302 [local-ai] INFO Processing audio with duration 00:04.428
+2026-05-01 01:14:14,254 [local-ai] INFO Processing audio with duration 00:04.896
+2026-05-01 01:14:19,695 [local-ai] INFO Processing audio with duration 00:04.680
+2026-05-01 01:14:24,976 [local-ai] INFO Processing audio with duration 00:04.680

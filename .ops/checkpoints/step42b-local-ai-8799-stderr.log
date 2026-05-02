@@ -1,0 +1,246 @@
+[boot] python=3.12.10 cwd=C:\Users\user6\Desktop\웹사이트 만들기,컴퓨터에서 나오는 소리를받아서 한국어로 변환하는 서비스
+[boot] importing ctranslate2 early
+[boot] ctranslate2 OK ver=4.7.1
+INFO:     Started server process [27372]
+INFO:     Waiting for application startup.
+[boot] lifespan: entering
+[boot] lifespan: about to call _load_whisper
+[boot] _load_whisper: importing ctranslate2
+[boot] _load_whisper: ctranslate2 OK ver=4.7.1
+[boot] _load_whisper: importing tokenizers
+[boot] _load_whisper: tokenizers OK
+[boot] _load_whisper: importing onnxruntime
+[boot] _load_whisper: onnxruntime OK ver=1.24.4
+[boot] _load_whisper: importing faster_whisper
+[boot] _load_whisper: faster_whisper OK
+2026-05-01 00:25:35,575 [local-ai] INFO Loading faster-whisper model=medium device=cpu compute_type=int8
+2026-05-01 00:25:35,979 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-medium/revision/main "HTTP/1.1 200 OK"
+2026-05-01 00:25:37,797 [local-ai] INFO faster-whisper model loaded: medium
+[boot] lifespan: _load_whisper returned
+2026-05-01 00:25:37,912 [local-ai] INFO Argos installed languages: en, ja, ko
+2026-05-01 00:25:37,912 [local-ai] INFO Argos translation ready.
+2026-05-01 00:25:39,061 [local-ai] INFO Loading Japanese direct model=facebook/nllb-200-distilled-600M source=C:\Users\user6\AppData\Roaming\sorisori\models\nllb\models--facebook--nllb-200-distilled-600M\snapshots\f8d333a098d19b4fd9a8b18f94170487ad3f821d mode=auto local_only=False
+Loading weights:   0%|          | 0/512 [00:00<?, ?it/s]Loading weights: 100%|##########| 512/512 [00:00<00:00, 73118.27it/s]
+2026-05-01 00:25:40,303 [local-ai] INFO Japanese direct model loaded.
+2026-05-01 00:25:40,313 [local-ai] INFO Loading MarianMT en model=Helsinki-NLP/opus-mt-tc-big-en-ko
+2026-05-01 00:25:40,514 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 00:25:40,516 [local-ai] WARNING Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 00:25:40,529 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 00:25:40,738 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Helsinki-NLP/opus-mt-tc-big-en-ko/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 00:25:40,948 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Helsinki-NLP/opus-mt-tc-big-en-ko/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 00:25:41,257 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 00:25:41,272 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/config.json "HTTP/1.1 200 OK"
+2026-05-01 00:25:41,498 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+Loading weights:   0%|          | 0/254 [00:00<?, ?it/s]Loading weights: 100%|##########| 254/254 [00:00<00:00, 10505.51it/s]
+2026-05-01 00:25:43,567 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-ko/resolve/main/generation_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 00:25:43,583 [local-ai] INFO HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Helsinki-NLP/opus-mt-tc-big-en-ko/ae8606b7b29a495f31ce679cee2007f536a3a5ce/generation_config.json "HTTP/1.1 200 OK"
+2026-05-01 00:25:43,588 [local-ai] INFO MarianMT en→ko loaded.
+2026-05-01 00:25:43,636 [local-ai] INFO LLM backend ready: ollama qwen2.5:7b-instruct-q4_K_M @ http://127.0.0.1:11434
+[boot] lifespan: _load_translation returned
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8799 (Press CTRL+C to quit)
+2026-05-01 00:26:06,686 [local-ai] INFO Loading faster-whisper model=large-v3 device=cpu compute_type=int8
+2026-05-01 00:26:06,917 [local-ai] INFO HTTP Request: GET https://huggingface.co/api/models/Systran/faster-whisper-large-v3/revision/main "HTTP/1.1 200 OK"
+2026-05-01 00:26:10,798 [local-ai] INFO faster-whisper model loaded: large-v3
+2026-05-01 00:26:10,799 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:10,889 [local-ai] INFO VAD filter removed 00:06.680 of audio
+2026-05-01 00:26:17,576 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:17,602 [local-ai] INFO VAD filter removed 00:07.224 of audio
+2026-05-01 00:26:23,781 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:23,807 [local-ai] INFO VAD filter removed 00:07.976 of audio
+2026-05-01 00:26:30,230 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:30,256 [local-ai] INFO VAD filter removed 00:06.984 of audio
+2026-05-01 00:26:37,554 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:37,582 [local-ai] INFO VAD filter removed 00:06.344 of audio
+2026-05-01 00:26:44,500 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:44,528 [local-ai] INFO VAD filter removed 00:06.152 of audio
+2026-05-01 00:26:50,087 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:50,152 [local-ai] INFO VAD filter removed 00:06.680 of audio
+2026-05-01 00:26:55,595 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:26:55,660 [local-ai] INFO VAD filter removed 00:08.840 of audio
+2026-05-01 00:27:18,983 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:27:19,050 [local-ai] INFO VAD filter removed 00:07.224 of audio
+2026-05-01 00:27:24,251 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:27:24,320 [local-ai] INFO VAD filter removed 00:06.728 of audio
+2026-05-01 00:27:47,974 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:27:48,033 [local-ai] INFO VAD filter removed 00:07.976 of audio
+2026-05-01 00:27:54,102 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:27:54,166 [local-ai] INFO VAD filter removed 00:04.568 of audio
+2026-05-01 00:28:18,438 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:28:18,498 [local-ai] INFO VAD filter removed 00:06.984 of audio
+2026-05-01 00:28:24,365 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:28:24,434 [local-ai] INFO VAD filter removed 00:06.696 of audio
+2026-05-01 00:28:48,389 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:28:48,450 [local-ai] INFO VAD filter removed 00:06.344 of audio
+2026-05-01 00:28:54,184 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:28:54,248 [local-ai] INFO VAD filter removed 00:06.904 of audio
+2026-05-01 00:29:19,109 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:19,171 [local-ai] INFO VAD filter removed 00:06.152 of audio
+2026-05-01 00:29:23,165 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:23,191 [local-ai] INFO VAD filter removed 00:03.640 of audio
+2026-05-01 00:29:33,810 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:33,837 [local-ai] INFO VAD filter removed 00:08.840 of audio
+2026-05-01 00:29:36,589 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:36,616 [local-ai] INFO VAD filter removed 00:07.288 of audio
+2026-05-01 00:29:46,133 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:46,159 [local-ai] INFO VAD filter removed 00:06.728 of audio
+2026-05-01 00:29:48,338 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:29:48,367 [local-ai] INFO VAD filter removed 00:03.368 of audio
+2026-05-01 00:30:00,475 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:00,510 [local-ai] INFO VAD filter removed 00:04.568 of audio
+2026-05-01 00:30:03,268 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:03,294 [local-ai] INFO VAD filter removed 00:03.224 of audio
+2026-05-01 00:30:13,786 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:13,813 [local-ai] INFO VAD filter removed 00:06.696 of audio
+2026-05-01 00:30:17,991 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:18,028 [local-ai] INFO VAD filter removed 00:07.976 of audio
+2026-05-01 00:30:34,985 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:35,026 [local-ai] INFO VAD filter removed 00:06.904 of audio
+2026-05-01 00:30:39,658 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:39,699 [local-ai] INFO VAD filter removed 00:06.712 of audio
+2026-05-01 00:30:55,798 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:30:55,846 [local-ai] INFO VAD filter removed 00:03.640 of audio
+2026-05-01 00:31:00,174 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:00,215 [local-ai] INFO VAD filter removed 00:04.808 of audio
+2026-05-01 00:31:16,932 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:16,974 [local-ai] INFO VAD filter removed 00:07.288 of audio
+2026-05-01 00:31:21,310 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:21,346 [local-ai] INFO VAD filter removed 00:08.648 of audio
+2026-05-01 00:31:37,244 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:37,279 [local-ai] INFO VAD filter removed 00:03.368 of audio
+2026-05-01 00:31:40,933 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:40,967 [local-ai] INFO VAD filter removed 00:07.208 of audio
+2026-05-01 00:31:56,859 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:31:56,900 [local-ai] INFO VAD filter removed 00:03.224 of audio
+2026-05-01 00:32:01,792 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:01,849 [local-ai] INFO VAD filter removed 00:05.440 of audio
+2026-05-01 00:32:15,151 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:15,182 [local-ai] INFO VAD filter removed 00:07.976 of audio
+2026-05-01 00:32:18,573 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:18,603 [local-ai] INFO VAD filter removed 00:08.456 of audio
+2026-05-01 00:32:29,999 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:30,026 [local-ai] INFO VAD filter removed 00:06.712 of audio
+2026-05-01 00:32:32,951 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:32,979 [local-ai] INFO VAD filter removed 00:07.672 of audio
+2026-05-01 00:32:43,983 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:44,011 [local-ai] INFO VAD filter removed 00:04.808 of audio
+2026-05-01 00:32:46,173 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:46,201 [local-ai] INFO VAD filter removed 00:08.584 of audio
+2026-05-01 00:32:57,178 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:57,211 [local-ai] INFO VAD filter removed 00:08.648 of audio
+2026-05-01 00:32:59,511 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:32:59,538 [local-ai] INFO VAD filter removed 00:11.336 of audio
+2026-05-01 00:33:12,771 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:12,799 [local-ai] INFO VAD filter removed 00:07.208 of audio
+2026-05-01 00:33:15,256 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:15,289 [local-ai] INFO VAD filter removed 00:04.984 of audio
+2026-05-01 00:33:30,209 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:30,244 [local-ai] INFO VAD filter removed 00:05.440 of audio
+2026-05-01 00:33:34,058 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:34,093 [local-ai] INFO VAD filter removed 00:04.056 of audio
+2026-05-01 00:33:49,696 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:49,742 [local-ai] INFO VAD filter removed 00:08.456 of audio
+2026-05-01 00:33:53,602 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:33:53,635 [local-ai] INFO VAD filter removed 00:08.184 of audio
+2026-05-01 00:34:05,395 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:05,428 [local-ai] INFO VAD filter removed 00:07.672 of audio
+2026-05-01 00:34:07,781 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:07,816 [local-ai] INFO VAD filter removed 00:05.160 of audio
+2026-05-01 00:34:18,096 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:18,123 [local-ai] INFO VAD filter removed 00:08.584 of audio
+2026-05-01 00:34:20,847 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:20,874 [local-ai] INFO VAD filter removed 00:07.496 of audio
+2026-05-01 00:34:31,420 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:31,449 [local-ai] INFO VAD filter removed 00:11.336 of audio
+2026-05-01 00:34:40,009 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:40,036 [local-ai] INFO VAD filter removed 00:04.984 of audio
+2026-05-01 00:34:46,676 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:46,704 [local-ai] INFO VAD filter removed 00:04.056 of audio
+2026-05-01 00:34:53,456 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:53,485 [local-ai] INFO VAD filter removed 00:08.184 of audio
+2026-05-01 00:34:59,866 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:34:59,894 [local-ai] INFO VAD filter removed 00:05.160 of audio
+2026-05-01 00:35:06,608 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:06,635 [local-ai] INFO VAD filter removed 00:07.496 of audio
+2026-05-01 00:35:22,840 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:22,869 [local-ai] INFO VAD filter removed 00:03.560 of audio
+2026-05-01 00:35:29,325 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:29,352 [local-ai] INFO VAD filter removed 00:02.984 of audio
+2026-05-01 00:35:37,668 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:37,699 [local-ai] INFO VAD filter removed 00:04.600 of audio
+2026-05-01 00:35:46,580 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:46,613 [local-ai] INFO VAD filter removed 00:05.080 of audio
+2026-05-01 00:35:55,099 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:35:55,126 [local-ai] INFO VAD filter removed 00:07.080 of audio
+2026-05-01 00:36:02,221 [local-ai] INFO Language hint=ja strict dropped non-Japanese transcript: '2016'
+2026-05-01 00:36:02,229 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:02,266 [local-ai] INFO VAD filter removed 00:05.240 of audio
+2026-05-01 00:36:12,430 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:12,462 [local-ai] INFO VAD filter removed 00:06.792 of audio
+2026-05-01 00:36:21,710 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:21,744 [local-ai] INFO VAD filter removed 00:07.144 of audio
+2026-05-01 00:36:31,803 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:31,834 [local-ai] INFO VAD filter removed 00:07.352 of audio
+2026-05-01 00:36:40,371 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:40,405 [local-ai] INFO VAD filter removed 00:08.360 of audio
+2026-05-01 00:36:49,546 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:49,579 [local-ai] INFO VAD filter removed 00:06.744 of audio
+2026-05-01 00:36:58,067 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:36:58,095 [local-ai] INFO VAD filter removed 00:07.368 of audio
+2026-05-01 00:37:06,901 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:06,931 [local-ai] INFO VAD filter removed 00:04.536 of audio
+2026-05-01 00:37:16,495 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:16,539 [local-ai] INFO VAD filter removed 00:03.176 of audio
+2026-05-01 00:37:25,519 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:25,559 [local-ai] INFO VAD filter removed 00:05.512 of audio
+2026-05-01 00:37:34,626 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:34,655 [local-ai] INFO VAD filter removed 00:06.248 of audio
+2026-05-01 00:37:43,777 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:43,813 [local-ai] INFO VAD filter removed 00:05.304 of audio
+2026-05-01 00:37:53,042 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:37:53,070 [local-ai] INFO VAD filter removed 00:06.824 of audio
+2026-05-01 00:38:01,954 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:01,982 [local-ai] INFO VAD filter removed 00:03.944 of audio
+2026-05-01 00:38:10,898 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:10,937 [local-ai] INFO VAD filter removed 00:06.904 of audio
+2026-05-01 00:38:20,050 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:20,097 [local-ai] INFO VAD filter removed 00:02.328 of audio
+2026-05-01 00:38:30,050 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:30,078 [local-ai] INFO VAD filter removed 00:06.824 of audio
+2026-05-01 00:38:38,560 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:38,602 [local-ai] INFO VAD filter removed 00:05.224 of audio
+2026-05-01 00:38:49,059 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:49,092 [local-ai] INFO VAD filter removed 00:05.864 of audio
+2026-05-01 00:38:58,949 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:38:58,975 [local-ai] INFO VAD filter removed 00:08.040 of audio
+2026-05-01 00:39:07,829 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:07,870 [local-ai] INFO VAD filter removed 00:04.248 of audio
+2026-05-01 00:39:17,170 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:17,212 [local-ai] INFO VAD filter removed 00:05.560 of audio
+2026-05-01 00:39:26,176 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:26,209 [local-ai] INFO VAD filter removed 00:10.584 of audio
+2026-05-01 00:39:34,555 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:34,588 [local-ai] INFO VAD filter removed 00:05.736 of audio
+2026-05-01 00:39:43,677 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:43,708 [local-ai] INFO VAD filter removed 00:01.176 of audio
+2026-05-01 00:39:53,519 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:39:53,547 [local-ai] INFO VAD filter removed 00:04.744 of audio
+2026-05-01 00:40:03,996 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:04,045 [local-ai] INFO VAD filter removed 00:02.632 of audio
+2026-05-01 00:40:14,248 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:14,274 [local-ai] INFO VAD filter removed 00:01.992 of audio
+2026-05-01 00:40:21,959 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:21,985 [local-ai] INFO VAD filter removed 00:05.896 of audio
+2026-05-01 00:40:28,409 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:28,436 [local-ai] INFO VAD filter removed 00:02.200 of audio
+2026-05-01 00:40:35,303 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:35,329 [local-ai] INFO VAD filter removed 00:05.080 of audio
+2026-05-01 00:40:42,631 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:42,658 [local-ai] INFO VAD filter removed 00:07.272 of audio
+2026-05-01 00:40:49,021 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:49,047 [local-ai] INFO VAD filter removed 00:07.144 of audio
+2026-05-01 00:40:55,927 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:40:55,954 [local-ai] INFO VAD filter removed 00:05.016 of audio
+2026-05-01 00:41:04,761 [local-ai] INFO Processing audio with duration 00:15.000
+2026-05-01 00:41:04,791 [local-ai] INFO VAD filter removed 00:04.824 of audio
